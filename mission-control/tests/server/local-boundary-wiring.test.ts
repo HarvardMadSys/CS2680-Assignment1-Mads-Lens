@@ -156,5 +156,7 @@ describe('binding', () => {
     } as unknown as NodeJS.ProcessEnv;
     expect(loadConfig(env, '/app').allowedHosts).toEqual(['console.lan', 'mc.internal']);
     expect(loadConfig({} as NodeJS.ProcessEnv, '/app').allowedHosts).toEqual([]);
+    const any = { MISSION_CONTROL_ALLOWED_HOSTS: ' * ' } as unknown as NodeJS.ProcessEnv;
+    expect(loadConfig(any, '/app').allowedHosts).toEqual(['*']);
   });
 });

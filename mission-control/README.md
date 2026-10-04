@@ -124,7 +124,7 @@ Set these environment variables before starting the server.
 | --- | --- | --- |
 | `PORT` | `8000` | Port to listen on. |
 | `HOST` | `0.0.0.0` | Address to bind. `127.0.0.1` accepts connections from this machine only. |
-| `MISSION_CONTROL_ALLOWED_HOSTS` | (none) | Extra hostnames the server answers to, comma-separated (see [Security](#security)). Loopback names, IP addresses and this machine's hostname are always accepted. |
+| `MISSION_CONTROL_ALLOWED_HOSTS` | (none) | Extra hostnames the server answers to, comma-separated, for example `mc.example.org` (see [Security](#security)). Loopback names, IP addresses and this machine's hostname are always accepted. `*` accepts any hostname. |
 | `MISSION_CONTROL_CLAUDE_BIN` | `claude` | The Claude Code executable. Use an absolute path if it isn't on `PATH`. |
 | `MISSION_CONTROL_ALLOWED_TOOLS` | the list above | The `--allowedTools` list for runs (the Chrome tools are always added). |
 | `MISSION_CONTROL_DATA_DIR` | `.data/` in this folder | SQLite database and Bring-together packages. |
@@ -138,6 +138,8 @@ For example: `PORT=9000 HOST=127.0.0.1 pnpm dev`.
 Mission Control has **no authentication** and listens on **all interfaces (`0.0.0.0`)** by default. Anyone who can reach port 8000 can read your sessions and, in live mode, start Claude Code runs in any folder on your machine, with Bash allowed and no permission prompts. The API also has a comparison endpoint, not used by the UI, that can start runs with `--dangerously-skip-permissions`. On a network you don't fully trust, start it with `HOST=127.0.0.1`.
 
 The server does check every request and WebSocket. The `Host` header must be a loopback name, an IP address, this machine's hostname or a name in `MISSION_CONTROL_ALLOWED_HOSTS`, which blocks DNS-rebinding attacks. A browser's `Origin` must match that host, which stops other web pages from driving the console. These checks protect you from malicious web pages, not from people on your network.
+
+`MISSION_CONTROL_ALLOWED_HOSTS=*` accepts any hostname, which turns the DNS-rebinding protection off: a web page you visit could then drive the console through a hostname it controls. Use it for a console you are deliberately making public, where anyone who can reach it can use it anyway. Otherwise, list the names you use.
 
 ## Development
 
@@ -166,6 +168,6 @@ More detail: [architecture](docs/approach.md), [product intent](docs/product-int
 - Sessions are kept in `.data/`, and **New folder** creates `~/scratch/scratch*`. Delete them to reset.
 - The **Files** tab shows the folder as it is now. Replaying a run rebuilds the conversation, not the files as they were.
 - Archiving a session hides it but doesn't delete its files or Git worktrees.
-- The server only answers to loopback names, IP addresses and this machine's hostname. Reaching it under another name (a reverse proxy, a DNS alias) needs that name in `MISSION_CONTROL_ALLOWED_HOSTS`. The port can differ, so a port forward such as `ssh -L 9000:localhost:8000` or `docker run -p 3080:8000` needs no setup.
-- In `pnpm dev`/`pnpm demo`, Next.js also blocks its dev assets for addresses that aren't this machine's own (for example a Docker host's IP), and the page then doesn't load. Add the address to `MISSION_CONTROL_ALLOWED_HOSTS`, or use `pnpm build && pnpm start`.
+- The server only answers to loopback names, IP addresses and this machine's hostname. Reaching it under another name (a reverse proxy, a DNS alias) needs that name in `MISSION_CONTROL_ALLOWED_HOSTS`, or `*` for any name. The port can differ, so a port forward such as `ssh -L 9000:localhost:8000` or `docker run -p 3080:8000` needs no setup.
+- In `pnpm dev`/`pnpm demo`, Next.js also blocks its dev assets for addresses that aren't this machine's own (for example a Docker host's IP), and the page then doesn't load. Add the address to `MISSION_CONTROL_ALLOWED_HOSTS` (`*` covers any name with a dot in it), or use `pnpm build && pnpm start`.
 - Process-group cancellation is built for macOS and Linux. Windows hasn't been tested, and the `pnpm` scripts use POSIX shell syntax.

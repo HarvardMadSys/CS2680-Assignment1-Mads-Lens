@@ -19,7 +19,9 @@ import { hostname as machineHostname } from 'node:os';
  *   accepted. None of those can be pointed at us by someone else, which is what stops a rebound
  *   hostname. The port is not compared with ours: a port forward (`ssh -L 3080:localhost:8000`,
  *   `docker run -p 3080:8000`) or a proxy delivers requests naming the port the browser dialled,
- *   and a rebound hostname is refused whatever port it names.
+ *   and a rebound hostname is refused whatever port it names. `MISSION_CONTROL_ALLOWED_HOSTS=*`
+ *   accepts any name instead: the operator serving the console under names nobody can list in
+ *   advance, and giving this protection up to do so.
  * - **Origin** — which document is asking? Present means a browser is asking on behalf of a page;
  *   it must be this same origin (the authority named by `Host`). Absent means a non-browser tool
  *   (curl, a test, an editor integration) is asking directly, which is allowed: the header is not a
@@ -30,7 +32,10 @@ import { hostname as machineHostname } from 'node:os';
  */
 
 export interface LocalBoundary {
-  /** Extra hostnames (lower-cased) this server answers to, from `MISSION_CONTROL_ALLOWED_HOSTS`. */
+  /**
+   * Extra hostnames (lower-cased) this server answers to, from `MISSION_CONTROL_ALLOWED_HOSTS`;
+   * `*` means any name.
+   */
   allowedHosts?: readonly string[];
 }
 
@@ -68,18 +73,23 @@ function isIpLiteral(hostname: string): boolean {
   return isIP(hostname) === 4;
 }
 
+/** A DNS name as a browser puts it in `Host`: dot-separated labels, optionally fully qualified. */
+const DNS_NAME = /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*\.?$/;
+
 /**
  * Is this a name this server answers to?
  *
  * Loopback names and IP literals (what you type to reach this machine from another one) name an
  * address directly, so nobody else can rebind them. This machine's own hostname (and its `.local`
- * mDNS form) is accepted for convenience; any other name must be listed explicitly.
+ * mDNS form) is accepted for convenience; any other name must be listed explicitly, or the list
+ * must be `*`, which accepts any well-formed name.
  */
 export function isServableHostname(hostname: string, allowedHosts: readonly string[] = []): boolean {
   const name = hostname.toLowerCase();
   if (isLoopbackHostname(name) || isIpLiteral(name)) return true;
   const machine = machineHostname().toLowerCase();
   if (machine && (name === machine || name === `${machine}.local`)) return true;
+  if (allowedHosts.includes('*')) return DNS_NAME.test(name);
   return allowedHosts.includes(name);
 }
 

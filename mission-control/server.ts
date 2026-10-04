@@ -92,6 +92,10 @@ async function main() {
     console.log(`Mission Control  http://${shown}:${config.port}`);
     if (allInterfaces)
       console.log(`  listening on all interfaces (${config.host}); set HOST=127.0.0.1 for this machine only`);
+    if (config.allowedHosts?.includes('*'))
+      console.log(
+        '  answering to any hostname (MISSION_CONTROL_ALLOWED_HOSTS=*): DNS-rebinding protection is off',
+      );
     console.log(`  data: ${config.dataDir}`);
     console.log(`  agent: ${config.claudeBin}`);
   });

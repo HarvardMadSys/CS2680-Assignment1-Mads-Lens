@@ -44,7 +44,7 @@ Native delegate completion follows Claude's task lifecycle events; a launch ackn
 
 SQLite history and project files have separate lifecycles. File previews read the current workspace, including pre-existing files. Replay restores recorded events, not filesystem snapshots. HTML/SVG previews use a sandboxed iframe and restrictive content policy.
 
-The server listens on all interfaces by default (`HOST=127.0.0.1` restricts it to this machine) and checks every request at the boundary in `src/server/net/localOnly.ts`: `Host` must be a loopback name, an IP address, this machine's hostname or an explicitly allowed name, and a browser `Origin` must match it. There is no authentication. CLI children use the user's login; inherited Claude session markers and Anthropic credential/endpoint overrides are removed. The working directory is not a filesystem sandbox.
+The server listens on all interfaces by default (`HOST=127.0.0.1` restricts it to this machine) and checks every request at the boundary in `src/server/net/localOnly.ts`: `Host` must be a loopback name, an IP address, this machine's hostname or an explicitly allowed name (`MISSION_CONTROL_ALLOWED_HOSTS=*` allows any name, giving up DNS-rebinding protection), and a browser `Origin` must match it. There is no authentication. CLI children use the user's login; inherited Claude session markers and Anthropic credential/endpoint overrides are removed. The working directory is not a filesystem sandbox.
 
 Isolated checkouts start at the selected source's committed HEAD. Preparation failures roll back resources created by that operation. Dependencies, uncommitted changes, and conversation context are not copied.
 
