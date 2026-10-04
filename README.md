@@ -10,15 +10,51 @@ around it.
 Every folder is a self-contained app with its own README. Each one bundles recorded runs, so you can try it
 without installing Claude Code or spending any usage.
 
-| App | The idea | Stack | Created by |
-|---|---|---|---|
-| [Intent Timeline](intent-timeline/) | Steps headed by what the agent said it would do, plus a "where the time went" timeline and cost split by model | Python standard library, vanilla JS | Yide Bian |
-| [Patchwork](patchwork/) | Delegation as a team at work: named subagents, one lane per agent, handoff cards | Vite + React, Express | Djordje Ivanovic |
-| [Fork View](fork-view/) | Parallel work forks the log into side-by-side columns, nested recursively | Vite + React, Express | Zoe Jingyi Liu |
-| [Sankey Flow](sankey-flow/) | A Sankey of where a run's calls and time went (agent → tool → outcome), plus speed gauges and an animated cat | Python + Flask | Ibrahim Khaliliya |
-| [Swimlanes](swimlanes/) | A real time axis: one swimlane per agent, with zoom and follow-live | Python standard library, single file | Eric Gong |
-| [Controller](controller/) | A hardware-style control surface (effort knob, model keys, subagent fader) with a radial scope of agents | Node + TypeScript, no dependencies | Raul Romero |
-| [Mission Control](mission-control/) | Sessions you manage, with a card per delegated subagent, a view scoped to each one and a call inspector | Next.js + tRPC + SQLite | Saul Richardson |
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="intent-timeline/"><img src="docs/gallery/intent-timeline.jpg" alt="Intent Timeline's 'where the time went' chart, with a main-agent lane holding two overlapping blue subagent bars and a lane of tool calls for each subagent, above a wall-time breakdown noting parallel calls saved 7.7 s and a run summary of cost by model, duration, tokens and subagent totals." width="100%"></a><br>
+<b><a href="intent-timeline/">Intent Timeline</a></b>: Steps headed by what the agent said it would do, plus a "where the time went" timeline and cost split by model.<br>
+<sub>Python standard library, vanilla JS · Created by Yide Bian</sub>
+</td>
+<td width="50%" valign="top">
+<a href="patchwork/"><img src="docs/gallery/patchwork.jpg" alt="Patchwork's Lanes view with columns for Djordje, Haru, Inês, Camila and part of Irina, where Djordje's lane lists his Assigned cards, each subagent lane runs from 'Assigned by Djordje' to a dashed 'Result returned' card, and green arrows link Inês's assignment and returned result to Djordje." width="100%"></a><br>
+<b><a href="patchwork/">Patchwork</a></b>: Delegation as a team at work: named subagents, one lane per agent, handoff cards.<br>
+<sub>Vite + React, Express · Created by Djordje Ivanovic</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="fork-view/"><img src="docs/gallery/fork-view.jpg" alt="Fork View's log forked into two side-by-side columns for parallel Explore subagents, the left nesting a subagent whose own two subagents are stacked inside it and the right nesting one, followed by a green final-result card." width="100%"></a><br>
+<b><a href="fork-view/">Fork View</a></b>: Parallel work forks the log into side-by-side columns, nested recursively.<br>
+<sub>Vite + React, Express · Created by Zoe Jingyi Liu</sub>
+</td>
+<td width="50%" valign="top">
+<a href="sankey-flow/"><img src="docs/gallery/sankey-flow.jpg" alt="Sankey Flow's four-column Sankey linking one run to Claude and two Explore subagents, then to LLM turn, Agent, Read, Bash and Skill actions and a Completed outcome, with the LLM turn ribbons highlighted and a tooltip showing 7 calls (44% of column) and 51 s (70%)." width="100%"></a><br>
+<b><a href="sankey-flow/">Sankey Flow</a></b>: A Sankey of where a run's calls and time went (agent → tool → outcome), plus speed gauges and an animated cat.<br>
+<sub>Python + Flask · Created by Ibrahim Khaliliya</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="swimlanes/"><img src="docs/gallery/swimlanes.jpg" alt="Swimlanes' dark Timeline view, with a zoom slider at 35 px/s, a 0 to 18 s ruler and seven agent lanes whose pink Agent bars and colored tool-call blocks sit at their real times across two consecutive replayed runs." width="100%"></a><br>
+<b><a href="swimlanes/">Swimlanes</a></b>: A real time axis: one swimlane per agent, with zoom and follow-live.<br>
+<sub>Python standard library, single file · Created by Eric Gong</sub>
+</td>
+<td width="50%" valign="top">
+<a href="controller/"><img src="docs/gallery/controller.jpg" alt="Controller's dark hardware-style board after a replayed run, with the effort knob at xhigh, the opus key pressed, the subagent fader at 4 with delegation required, nested subagent cards in the center and a radial scope of four subagents around the main agent." width="100%"></a><br>
+<b><a href="controller/">Controller</a></b>: A hardware-style control surface (effort knob, model keys, subagent fader) with a radial scope of agents.<br>
+<sub>Node + TypeScript, no dependencies · Created by Raul Romero</sub>
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center" valign="top">
+<a href="mission-control/"><img src="docs/gallery/mission-control.jpg" alt="Mission Control mid-run, with a main-session card and three Working subagent cards above a tool-call outline and three stacked Agent groups, the last expanded to show a nested subagent's navigate call." width="50%"></a><br>
+<b><a href="mission-control/">Mission Control</a></b>: Sessions you manage, with a card per delegated subagent, a view scoped to each one and a call inspector.<br>
+<sub>Next.js + tRPC + SQLite · Created by Saul Richardson</sub>
+</td>
+</tr>
+</table>
 
 ## Getting started
 

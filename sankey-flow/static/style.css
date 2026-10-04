@@ -40,7 +40,7 @@ main.split { grid-template-columns: minmax(300px, 36%) minmax(0, 1fr); }
   --flow-tool-shell: #eda100;                                                  /* Bash — yellow */
   --flow-tool-file:  #1baf7a;                                                  /* Read/Write/Edit/Glob/Grep… — aqua */
   --flow-tool-web:   #e87ba4;                                                  /* WebSearch/WebFetch — magenta */
-  --flow-tool-other: #008300;                                                  /* ToolSearch/Skill/mcp__*/"Other tools" — green */
+  --flow-tool-other: #008300;                                                  /* ToolSearch/Skill/mcp__ tools/"Other tools" — green */
   --flow-ok:         var(--color-success);
   --flow-fail:       var(--color-error);
   --flow-stop:       var(--color-warning);
