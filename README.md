@@ -18,7 +18,7 @@ without installing Claude Code or spending any usage.
 | [Sankey Flow](sankey-flow/) | A Sankey of where a run's calls and time went (agent → tool → outcome), plus speed gauges and an animated cat | Python + Flask | Ibrahim Khaliliya |
 | [Swimlanes](swimlanes/) | A real time axis: one swimlane per agent, with zoom and follow-live | Python standard library, single file | Eric Gong |
 | [Controller](controller/) | A hardware-style control surface (effort knob, model keys, subagent fader) with a radial scope of agents | Node + TypeScript, no dependencies | Raul Romero |
-| [Mission Control](mission-control/) | Sessions you manage, with a card per delegated subagent, a view scoped to each one and a call inspector | Next.js + tRPC + SQLite | Saul Richardson |
+| [Subagents as a team](subagents-as-a-team/) | Sessions you manage, with a card per delegated subagent, a view scoped to each one and a call inspector | Next.js + tRPC + SQLite | Saul Richardson |
 
 ## Getting started
 
