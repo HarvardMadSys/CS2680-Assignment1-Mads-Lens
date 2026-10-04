@@ -8,7 +8,7 @@
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "start": "node server/index.js",
-    "check": "node scripts/check-parse.mjs && node scripts/check-conversation.mjs && node scripts/check-hierarchy.mjs && node scripts/check-uploads.mjs && node scripts/check-render.mjs",
+    "check": "node scripts/check-parse.mjs && node scripts/check-conversation.mjs && node scripts/check-hierarchy.mjs && node scripts/check-uploads.mjs && node scripts/check-render.mjs && node scripts/check-composer.mjs",
     "check:browser": "node scripts/check-browser.mjs"
   },
   "dependencies": {

@@ -109,6 +109,8 @@ before typing a prompt.
 - It is relative to the project folder and must stay inside it. `node_modules`, `sessions` and
   `.git` are refused.
 - The default is `claude-test/`, a tiny sample project (`main.py`).
+- A session is tied to the directory it ran in, so choosing one in **Continue from** also sets the
+  working directory to match. When the page loads, your most recent session is already chosen.
 - For experiments, use a throwaway folder that git ignores, for example `mkdir -p runs/scratch`, and
   then enter `runs/scratch` as the working directory.
 
@@ -179,7 +181,8 @@ npm run check
 ```
 
 These offline checks cover event parsing, conversation state, the subagent hierarchy, upload
-validation and rendering. They need no server and no Claude Code.
+validation, rendering and the composer's **Continue from** picker. They need no server and no Claude
+Code.
 
 `scripts/check-browser.mjs` is a separate end-to-end suite. It drives the built app in a
 Chromium-based browser (`CHROME_PATH`, `BASE_URL`) and **performs live Claude Code runs**, so it
