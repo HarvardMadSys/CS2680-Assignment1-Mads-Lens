@@ -1,6 +1,6 @@
 # Mads Lens
 
-Nine small web apps for driving [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and watching it work.
+Eight small web apps for driving [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and watching it work.
 
 Each app runs `claude -p … --output-format stream-json` against a directory you choose and turns the event
 stream into something you can read while it happens: tool calls, subagents working in parallel, failures,
@@ -16,7 +16,6 @@ without installing Claude Code or spending any usage.
 | [Patchwork](patchwork/) | Delegation as a team at work: named subagents, one lane per agent, handoff cards | Vite + React, Express | Djordje Ivanovic |
 | [Fork View](fork-view/) | Parallel work forks the log into side-by-side columns, nested recursively | Vite + React, Express | Zoe Jingyi Liu |
 | [Sankey Flow](sankey-flow/) | A Sankey of where a run's calls and time went (agent → tool → outcome), plus speed gauges and an animated cat | Python + Flask | Ibrahim Khaliliya |
-| [Trajectory](trajectory/) | A minimal black serif console where parallel subagents branch into lanes with time-estimate pills | Next.js + FastAPI | Jack Fan |
 | [Swimlanes](swimlanes/) | A real time axis: one swimlane per agent, with zoom and follow-live | Python standard library, single file | Eric Gong |
 | [Controller](controller/) | A hardware-style control surface (effort knob, model keys, subagent fader) with a radial scope of agents | Node + TypeScript, no dependencies | Raul Romero |
 | [Mission Control](mission-control/) | Sessions you manage, with a card per delegated subagent, a view scoped to each one and a call inspector | Next.js + tRPC + SQLite | Saul Richardson |
