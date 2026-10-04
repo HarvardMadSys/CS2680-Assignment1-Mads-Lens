@@ -24,21 +24,9 @@ or consuming Claude usage.
 <sub>Vite + React, Express · Created by Djordje Ivanovic</sub>
 </td>
 <td width="50%" valign="top">
-<a href="fork-view/"><img src="docs/gallery/fork-view.jpg" alt="Fork View's log forked into two side-by-side columns for parallel Explore subagents, the left nesting a subagent whose own two subagents are stacked inside it and the right nesting one, followed by a green final-result card." width="100%"></a><br>
-<b><a href="fork-view/">Fork View</a></b>: Makes parallelism part of the layout: the log splits into side-by-side columns when agents work concurrently, with further forks for nested delegation.<br>
-<sub>Vite + React, Express · Created by Zoe Jingyi Liu</sub>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="top">
 <a href="sankey-flow/"><img src="docs/gallery/sankey-flow.jpg" alt="Sankey Flow's four-column Sankey linking one run to Claude and two Explore subagents, then to LLM turn, Agent, Read, Bash and Skill actions and a Completed outcome, with the LLM turn ribbons highlighted and a tooltip showing 7 calls (44% of column) and 51 s (70%)." width="100%"></a><br>
 <b><a href="sankey-flow/">Sankey Flow</a></b>: Maps calls and time as flows between runs, agents, actions and outcomes. Live speed gauges and a cat whose animation follows the token rate add a playful touch.<br>
 <sub>Python + Flask · Created by Ibrahim Khaliliya</sub>
-</td>
-<td width="50%" valign="top">
-<a href="swimlanes/"><img src="docs/gallery/swimlanes.jpg" alt="Swimlanes' dark Timeline view, with a zoom slider at 35 px/s, a 0 to 18 s ruler and seven agent lanes whose pink Agent bars and colored tool-call blocks sit at their real times across two consecutive replayed runs." width="100%"></a><br>
-<b><a href="swimlanes/">Swimlanes</a></b>: Places each agent on a shared time axis, making overlapping tool calls and parallel work visible at a glance, with zoom and live following.<br>
-<sub>Python standard library, single file · Created by Eric Gong</sub>
 </td>
 </tr>
 <tr>
@@ -51,6 +39,18 @@ or consuming Claude usage.
 <a href="subagents-as-a-team/"><img src="docs/gallery/subagents-as-a-team.jpg" alt="Subagents as a team mid-run, with a main-session card and three Working subagent cards above a tool-call outline and three stacked Agent groups, the last expanded to show a nested subagent's navigate call." width="100%"></a><br>
 <b><a href="subagents-as-a-team/">Subagents as a team</a></b>: Makes each subagent easy to inspect: its card opens a focused view of its task, activity and result, with a call inspector for the details.<br>
 <sub>Next.js + tRPC + SQLite · Created by Saul Richardson</sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="fork-view/"><img src="docs/gallery/fork-view.jpg" alt="Fork View's log forked into two side-by-side columns for parallel Explore subagents, the left nesting a subagent whose own two subagents are stacked inside it and the right nesting one, followed by a green final-result card." width="100%"></a><br>
+<b><a href="fork-view/">Fork View</a></b>: Makes parallelism part of the layout: the log splits into side-by-side columns when agents work concurrently, with further forks for nested delegation.<br>
+<sub>Vite + React, Express · Created by Zoe Jingyi Liu</sub>
+</td>
+<td width="50%" valign="top">
+<a href="swimlanes/"><img src="docs/gallery/swimlanes.jpg" alt="Swimlanes' dark Timeline view, with a zoom slider at 35 px/s, a 0 to 18 s ruler and seven agent lanes whose pink Agent bars and colored tool-call blocks sit at their real times across two consecutive replayed runs." width="100%"></a><br>
+<b><a href="swimlanes/">Swimlanes</a></b>: Places each agent on a shared time axis, making overlapping tool calls and parallel work visible at a glance, with zoom and live following.<br>
+<sub>Python standard library, single file · Created by Eric Gong</sub>
 </td>
 </tr>
 </table>
