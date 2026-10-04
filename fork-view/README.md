@@ -84,8 +84,10 @@ before typing a prompt.
 ## Things to try
 
 - **Nested parallel subagents.** Replay `fixtures/parallel-deep.jsonl`. Two subagents run side by side
-  as columns, and the left one forks again into two more columns inside itself. The outline forks
-  twice to match. (This fixture was put together to show the layout. It is not a real trace.)
+  as columns (on a window about 1450 px wide or more), and the left one starts two subagents of its
+  own, which nest inside its column. They stack rather than sit side by side, because each column
+  needs about 30rem. The outline forks twice to match. (This fixture was put together to show the
+  layout. It is not a real trace.)
 - **Outline navigation.** Click a pill in the outline to jump to that call. The row gets a highlight
   box.
 - **Cost of a subagent.** Replay `fixtures/subagent-forward.jsonl`. The subagent's branch header
@@ -145,10 +147,11 @@ subagents seven apps to compare, clone this app collection into the git-ignored 
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git runs/mads-lens
 ```
 
-Enter `runs/mads-lens` as the **Working directory**. If **Continue from** is showing, set it to
-**Start a new conversation**, or the run tries to resume your latest session instead. Nothing needs
-enabling: the command above restricts no tools and sets no turn or budget cap, so the subagent tool
-(`Agent`, or `Task` in older Claude Code versions) is available, and Fork View forks on either name.
+Enter `runs/mads-lens` as the **Working directory** (click **New conversation** first if the field
+is locked). If **Continue from** is showing, set it to **Start a new conversation**, or the run
+tries to resume your latest session instead. Nothing needs enabling: the command above restricts no
+tools and sets no turn or budget cap, so the subagent tool (`Agent`, or `Task` in older Claude Code
+versions) is available, and Fork View forks on either name.
 
 Subagents launched in the same turn fork the log into columns (side by side on a wide window), and
 the outline forks with them. Branch headers time each subagent live and add a `≥$` estimate when it
