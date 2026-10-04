@@ -14,7 +14,9 @@ function devOrigins(): string[] {
   const machine = hostname().toLowerCase();
   const extra = (process.env.SUBAGENTS_AS_A_TEAM_ALLOWED_HOSTS ?? '')
     .split(',')
-    .map((h) => h.trim().toLowerCase());
+    .map((h) => h.trim().toLowerCase())
+    // Next never matches a bare `*`; `**.*` is its pattern for any name with a dot in it.
+    .map((h) => (h === '*' ? '**.*' : h));
   const names = machine ? [machine, `${machine}.local`] : [];
   return [...new Set([...addresses, ...names, ...extra])].filter((h) => h.length > 0);
 }

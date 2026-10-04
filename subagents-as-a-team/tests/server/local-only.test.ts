@@ -38,6 +38,20 @@ describe('isServableHostname', () => {
     expect(isServableHostname('console.lan', ['console.lan'])).toBe(true);
     expect(isServableHostname('Console.LAN', ['console.lan'])).toBe(true);
   });
+
+  it('accepts any well-formed name when the list is `*`', () => {
+    for (const name of [
+      'console.example.org',
+      'Mission.Example.ORG',
+      'example.com.',
+      'devbox',
+      'rebind.example',
+    ])
+      expect(isServableHostname(name, ['*'])).toBe(true);
+    expect(isServableHostname('mc.example.org', ['console.lan', '*'])).toBe(true);
+    for (const name of ['', 'a/b', 'user@evil.com', 'a..b', '[not-ipv6]', 'two words'])
+      expect(isServableHostname(name, ['*'])).toBe(false);
+  });
 });
 
 describe('the request boundary', () => {
@@ -63,6 +77,20 @@ describe('the request boundary', () => {
     // a proxy on the scheme's default port, which the browser leaves out of both headers
     expect(check({ host: 'localhost', origin: 'http://localhost' })).toEqual({ ok: true });
     expect(check({ host: '[::1]' })).toEqual({ ok: true });
+  });
+
+  it('serves any hostname when SUBAGENTS_AS_A_TEAM_ALLOWED_HOSTS is `*`, still only to its own pages', () => {
+    const open = { allowedHosts: ['*'] };
+    const own = { host: 'console.example.org:8000', origin: 'http://console.example.org:8000' };
+    expect(checkLocalBoundary(own, open)).toEqual({ ok: true });
+    expect(checkLocalBoundary({ host: 'mc.example.org' }, open)).toEqual({ ok: true });
+    // `*` lifts the Host rule only: a page from anywhere else is still not this console
+    for (const origin of ['http://evil.example', 'http://console.example.org:3080', 'null']) {
+      const verdict = checkLocalBoundary({ host: own.host, origin }, open);
+      expect(verdict.ok).toBe(false);
+      if (!verdict.ok) expect(verdict.status).toBe(403);
+    }
+    expect(checkLocalBoundary({ host: 'a/b:8000' }, open).ok).toBe(false);
   });
 
   it('still refuses a page on another local port', () => {

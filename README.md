@@ -68,6 +68,17 @@ Choose a project from the gallery and follow its README. Each app is self-contai
 setup instructions and replay or demo walkthrough. Start with a bundled recording to explore the
 interface and see its approach to subagents, tool calls and parallel work.
 
+Or start any app with one command:
+
+```bash
+cd <app>
+./start.sh
+```
+
+`start.sh` checks the app's requirements, installs its dependencies on the first run (and again only when
+they change), and starts it the way its README does. In Sankey Flow and Subagents as a team,
+`./start.sh --demo` starts with the bundled recordings instead of Claude.
+
 The projects use Python or Node.js; check the chosen app's README for the required version and
 package manager. Live mode also requires the `claude` CLI to be installed and logged in.
 

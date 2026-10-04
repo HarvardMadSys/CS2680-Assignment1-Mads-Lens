@@ -7,6 +7,7 @@ export interface Config {
   /**
    * Extra hostnames the request boundary accepts in `Host`/`Origin`, beyond loopback names, IP
    * literals and this machine's own hostname (`SUBAGENTS_AS_A_TEAM_ALLOWED_HOSTS`, comma-separated).
+   * `*` accepts any hostname, which turns off the boundary's DNS-rebinding protection.
    */
   allowedHosts?: string[];
   dataDir: string;
