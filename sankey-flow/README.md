@@ -152,7 +152,7 @@ Spawn subagents to explore the repo and report the most creative features
 ```
 
 "The repo" is the working directory. Any existing directory is accepted, and a throwaway clone of this
-collection makes a safe scratch folder with eight apps for the subagents to compare:
+collection makes a safe scratch folder with seven apps for the subagents to compare:
 
 ```bash
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
