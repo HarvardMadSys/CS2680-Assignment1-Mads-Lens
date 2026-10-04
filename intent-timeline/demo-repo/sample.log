@@ -1,5 +1,0 @@
-INFO server started
-DEBUG loaded 3 plugins
-WARN slow request /api/users 812ms
-ERROR disk full
-INFO request /health 200

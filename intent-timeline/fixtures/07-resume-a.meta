@@ -1,6 +1,0 @@
-scenario=07-resume-a
-exit=0
-seconds=29
-cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
-flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 2 
-prompt=Which file defines this project's command-line entry point, and which flags does it currently accept? Answer in two sentences and do not modify anything.
