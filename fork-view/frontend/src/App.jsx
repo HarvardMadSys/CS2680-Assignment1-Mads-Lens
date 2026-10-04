@@ -177,6 +177,10 @@ export default function App() {
   // Which past session a first run should resume. '' means start fresh. Only
   // consulted before this conversation has a session of its own.
   const [resumeChoice, setResumeChoice] = useState('')
+  // Whether the newest session may still be filled in as the default. '' cannot
+  // say so by itself: it is also the reader's choice to start fresh, which no
+  // refresh may undo.
+  const resumeDefaultPending = useRef(true)
   const [selected, setSelected] = useState('')
   const [attachments, setAttachments] = useState([])
   const [dragging, setDragging] = useState(false)
@@ -247,9 +251,18 @@ export default function App() {
     fetchSessions()
       .then((list) => {
         setSessions(list)
-        // The newest session is the default -- but as an initial value only.
-        // Once the reader has chosen, a refresh must not move it under them.
-        setResumeChoice((value) => (value === '' && list.length ? list[0].sessionId : value))
+        // The newest session is the default -- but as an initial value only,
+        // taken from the first list. A refresh after a run must not move the
+        // choice under the reader, and "Start a new conversation" is a choice.
+        if (!resumeDefaultPending.current) return
+        resumeDefaultPending.current = false
+
+        const newest = list[0]
+        if (!newest) return
+        setResumeChoice(newest.sessionId)
+        // Exactly as if it had been picked: a session is tied to the directory
+        // it ran in, so its working directory comes with it.
+        if (newest.cwd) setCwd(newest.cwd)
       })
       .catch(() => {})
   }, [busy])
@@ -461,6 +474,10 @@ export default function App() {
     activeSource.current = null
     setFollowing(true)
     dropAttachments()
+    // A new conversation starts fresh. Left alone, the picker would still hold
+    // whatever the last conversation began from, and the next Run would quietly
+    // resume that. Picking a past session is still one choice away.
+    setResumeChoice('')
     dispatch({ type: 'conversation/reset', mode })
   }
 
@@ -469,6 +486,10 @@ export default function App() {
     // An attachment on its own is a legitimate ask -- "read this" -- so the
     // prompt may be empty as long as something is going with it.
     if ((!text && !readyAttachments.length) || !submittable || attachmentsSettling) return
+
+    // Too late for a default from here on: one arriving now would move the
+    // working directory under a run that has already gone out.
+    resumeDefaultPending.current = false
 
     // What Claude Code is actually given: a line naming each attachment, then
     // what was typed. The run records this rather than the typed text alone,

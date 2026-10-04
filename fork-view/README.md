@@ -84,8 +84,10 @@ before typing a prompt.
 ## Things to try
 
 - **Nested parallel subagents.** Replay `fixtures/parallel-deep.jsonl`. Two subagents run side by side
-  as columns, and the left one forks again into two more columns inside itself. The outline forks
-  twice to match. (This fixture was put together to show the layout. It is not a real trace.)
+  as columns (on a window about 1450 px wide or more), and the left one starts two subagents of its
+  own, which nest inside its column. They stack rather than sit side by side, because each column
+  needs about 30rem. The outline forks twice to match. (This fixture was put together to show the
+  layout. It is not a real trace.)
 - **Outline navigation.** Click a pill in the outline to jump to that call. The row gets a highlight
   box.
 - **Cost of a subagent.** Replay `fixtures/subagent-forward.jsonl`. The subagent's branch header
@@ -109,6 +111,8 @@ before typing a prompt.
 - It is relative to the project folder and must stay inside it. `node_modules`, `sessions` and
   `.git` are refused.
 - The default is `claude-test/`, a tiny sample project (`main.py`).
+- A session is tied to the directory it ran in, so choosing one in **Continue from** also sets the
+  working directory to match. When the page loads, your most recent session is already chosen.
 - For experiments, use a throwaway folder that git ignores, for example `mkdir -p runs/scratch`, and
   then enter `runs/scratch` as the working directory.
 
@@ -143,10 +147,11 @@ subagents seven apps to compare, clone this app collection into the git-ignored 
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git runs/mads-lens
 ```
 
-Enter `runs/mads-lens` as the **Working directory**. If **Continue from** is showing, set it to
-**Start a new conversation**, or the run tries to resume your latest session instead. Nothing needs
-enabling: the command above restricts no tools and sets no turn or budget cap, so the subagent tool
-(`Agent`, or `Task` in older Claude Code versions) is available, and Fork View forks on either name.
+Enter `runs/mads-lens` as the **Working directory** (click **New conversation** first if the field
+is locked). If **Continue from** is showing, set it to **Start a new conversation**, or the run
+tries to resume your latest session instead. Nothing needs enabling: the command above restricts no
+tools and sets no turn or budget cap, so the subagent tool (`Agent`, or `Task` in older Claude Code
+versions) is available, and Fork View forks on either name.
 
 Subagents launched in the same turn fork the log into columns (side by side on a wide window), and
 the outline forks with them. Branch headers time each subagent live and add a `≥$` estimate when it
@@ -179,7 +184,8 @@ npm run check
 ```
 
 These offline checks cover event parsing, conversation state, the subagent hierarchy, upload
-validation and rendering. They need no server and no Claude Code.
+validation, rendering and the composer's **Continue from** picker. They need no server and no Claude
+Code.
 
 `scripts/check-browser.mjs` is a separate end-to-end suite. It drives the built app in a
 Chromium-based browser (`CHROME_PATH`, `BASE_URL`) and **performs live Claude Code runs**, so it
