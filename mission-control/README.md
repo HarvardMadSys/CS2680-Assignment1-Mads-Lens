@@ -166,6 +166,6 @@ More detail: [architecture](docs/approach.md), [product intent](docs/product-int
 - Sessions are kept in `.data/`, and **New folder** creates `~/scratch/scratch*`. Delete them to reset.
 - The **Files** tab shows the folder as it is now. Replaying a run rebuilds the conversation, not the files as they were.
 - Archiving a session hides it but doesn't delete its files or Git worktrees.
-- The server only answers to loopback names, IP addresses and this machine's hostname, on its own port number. Reaching it under another name (a reverse proxy, a DNS alias) needs that name in `MISSION_CONTROL_ALLOWED_HOSTS`, and a port forward has to keep the port number (`ssh -L 8000:localhost:8000` works, `ssh -L 9000:localhost:8000` is refused).
+- The server only answers to loopback names, IP addresses and this machine's hostname. Reaching it under another name (a reverse proxy, a DNS alias) needs that name in `MISSION_CONTROL_ALLOWED_HOSTS`. The port can differ, so a port forward such as `ssh -L 9000:localhost:8000` or `docker run -p 3080:8000` needs no setup.
 - In `pnpm dev`/`pnpm demo`, Next.js also blocks its dev assets for addresses that aren't this machine's own (for example a Docker host's IP), and the page then doesn't load. Add the address to `MISSION_CONTROL_ALLOWED_HOSTS`, or use `pnpm build && pnpm start`.
 - Process-group cancellation is built for macOS and Linux. Windows hasn't been tested, and the `pnpm` scripts use POSIX shell syntax.
