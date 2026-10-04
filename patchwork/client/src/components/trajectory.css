@@ -1,0 +1,260 @@
+.trajectory-execution {
+  position: relative;
+}
+.trajectory-order-note {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.trajectory-sticky-headers {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 3px 6px #00000004;
+}
+.trajectory-header-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.trajectory-lane-scroll {
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+.trajectory-grid {
+  display: grid;
+  gap: 32px;
+  padding: 0 12px;
+  width: max-content;
+  min-width: 100%;
+}
+.trajectory-agent {
+  min-width: 0;
+  padding: 10px 4px 10px 8px;
+  border-top: 3px solid var(--lane-color);
+}
+.trajectory-agent[data-path-active] {
+  background: var(--accent);
+}
+.trajectory-agent-link {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border-radius: 4px;
+}
+.trajectory-task-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+.trajectory-agent-person {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 5px 0;
+  font-size: 11px;
+}
+.trajectory-agent-person > span:last-child {
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.trajectory-board {
+  position: relative;
+  padding-top: 10px;
+  padding-bottom: 8px;
+  align-items: stretch;
+}
+.trajectory-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border-left: 1px solid color-mix(in oklch, var(--lane-color) 25%, transparent);
+  padding-left: 7px;
+}
+.trajectory-lane[data-path-active] {
+  border-left: 2px solid var(--lane-color);
+  padding-left: 6px;
+}
+.trajectory-tool,
+.trajectory-group {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  text-align: left;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.trajectory-tool:hover,
+.trajectory-selected {
+  background: var(--accent);
+  border-color: var(--primary);
+}
+.trajectory-handoff {
+  border-left: 2px solid var(--lane-color);
+}
+.trajectory-tool[data-path-active] {
+  border-color: var(--lane-color, var(--primary));
+}
+.trajectory-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+  color: var(--muted-foreground);
+  font-size: 9px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.trajectory-card-meta > :last-child {
+  flex-shrink: 0;
+}
+.trajectory-card-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.trajectory-excerpt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.trajectory-connection {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.trajectory-endpoint {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 3px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+.trajectory-endpoint > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.trajectory-group {
+  background: var(--secondary);
+}
+.trajectory-group-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+.trajectory-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 9px;
+  font-size: 10px;
+  text-align: left;
+}
+.trajectory-group-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+}
+.trajectory-group-steps .trajectory-tool {
+  padding: 7px;
+}
+.trajectory-attention {
+  border-color: var(--destructive);
+}
+.trajectory-attention .trajectory-excerpt {
+  display: block;
+}
+.trajectory-result {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--lane-color) 60%, transparent);
+}
+.trajectory-empty {
+  padding: 8px 4px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.trajectory-paths {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.trajectory-details {
+  flex-shrink: 0;
+  max-height: 38%;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--secondary);
+}
+.trajectory-detail-sections {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.trajectory-detail-sections dt {
+  margin-bottom: 3px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.trajectory-detail-link {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  text-align: left;
+}
+.trajectory-execution button:focus-visible,
+.trajectory-detail-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

@@ -1,0 +1,6 @@
+onlyBuiltDependencies:
+  - esbuild
+# better-sqlite3 ships prebuilt binaries for macOS, Linux and Windows (x64 and arm64), so its
+# node-gyp build step is not needed.
+ignoredBuiltDependencies:
+  - better-sqlite3

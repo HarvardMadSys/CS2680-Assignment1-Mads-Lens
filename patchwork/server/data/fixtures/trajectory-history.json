@@ -1,0 +1,806 @@
+[
+  {
+    "kind": "run_start",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:00.000Z",
+    "prompt": "Inspect the project and identify the entry point."
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:01.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "init",
+      "session_id": "fixture-shared-session",
+      "cwd": "/tmp/trajectory-fixture"
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:02.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "first-read",
+            "name": "Read",
+            "input": {
+              "file_path": "/tmp/trajectory-fixture/main.ts"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:03.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "first-read",
+            "content": "export const main = () => 'hello'",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:04.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "first-bash",
+            "name": "Bash",
+            "input": {
+              "command": "ls src"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:05.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "first-bash",
+            "content": "main.ts\nstyle.css",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:06.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "text",
+            "text": "The entry point is `main.ts`. It exports the main function; the stylesheet is separate."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:07.000Z",
+    "event": {
+      "type": "result",
+      "session_id": "fixture-shared-session",
+      "total_cost_usd": 0.02,
+      "duration_ms": 2500,
+      "num_turns": 3
+    }
+  },
+  {
+    "kind": "run_end",
+    "runId": "history-1",
+    "ts": "2026-09-09T16:00:08.000Z",
+    "status": "completed"
+  },
+  {
+    "kind": "run_start",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:09.000Z",
+    "prompt": "Review the client and server in parallel, then summarize the findings."
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:10.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "init",
+      "session_id": "fixture-shared-session",
+      "cwd": "/tmp/trajectory-fixture"
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:11.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "client-agent",
+            "name": "Agent",
+            "input": {
+              "description": "Review client",
+              "prompt": "Review the client"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:12.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "task_started",
+      "tool_use_id": "client-agent",
+      "task_id": "task-client",
+      "is_backgrounded": true
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:13.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "tool_use_result": {
+        "agentId": "agent-client-stable"
+      },
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "client-agent",
+            "content": "Async agent launched",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:14.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "server-agent",
+            "name": "Agent",
+            "input": {
+              "description": "Review server",
+              "prompt": "Review the server"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:15.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "task_started",
+      "tool_use_id": "server-agent",
+      "task_id": "task-server",
+      "is_backgrounded": true
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:16.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "tool_use_result": {
+        "agentId": "agent-server-stable"
+      },
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "server-agent",
+            "content": "Async agent launched",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:17.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "client-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "client-read",
+            "name": "Read",
+            "input": {
+              "file_path": "/tmp/trajectory-fixture/App.tsx"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:18.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": "client-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "client-read",
+            "content": "export function App() { return <main>Hello</main> }",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:19.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "main-during",
+            "name": "Bash",
+            "input": {
+              "command": "git status --short"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:20.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "main-during",
+            "content": " M App.tsx",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:21.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "server-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "server-read",
+            "name": "Read",
+            "input": {
+              "file_path": "/tmp/trajectory-fixture/routes.ts"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:22.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": "server-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "server-read",
+            "content": "router.get('/health', (_, res) => res.json({ ok: true }))",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:23.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "client-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "nested-agent",
+            "name": "Agent",
+            "input": {
+              "description": "Check accessibility",
+              "prompt": "Inspect keyboard controls"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:24.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "nested-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "nested-read",
+            "name": "Read",
+            "input": {
+              "file_path": "/tmp/trajectory-fixture/button.tsx"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:25.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": "nested-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "nested-read",
+            "content": "<button type='button'>Send</button>",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:26.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "nested-agent",
+      "message": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Keyboard controls use native buttons."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:27.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": "client-agent",
+      "tool_use_result": {
+        "agentId": "agent-accessibility"
+      },
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "nested-agent",
+            "content": "Accessibility check complete",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:28.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "server-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "server-test",
+            "name": "Bash",
+            "input": {
+              "command": "npm test -- server"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:29.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": "server-agent",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "server-test",
+            "content": "Test failed: missing route coverage",
+            "is_error": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:30.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "task_notification",
+      "tool_use_id": "server-agent",
+      "status": "failed",
+      "summary": "Review returned",
+      "usage": {
+        "tool_uses": 2
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:31.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "client-agent",
+      "message": {
+        "content": [
+          {
+            "type": "text",
+            "text": "The client uses native controls. Layout checks passed."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:32.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "task_notification",
+      "tool_use_id": "client-agent",
+      "status": "completed",
+      "summary": "Review returned",
+      "usage": {
+        "tool_uses": 2
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:33.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "main-after",
+            "name": "Read",
+            "input": {
+              "file_path": "/tmp/trajectory-fixture/README.md"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:34.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "main-after",
+            "content": "# Agent console",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:35.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Client review complete. The server review found missing route coverage. Parent work continued while both reviewers were active."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:36.000Z",
+    "event": {
+      "type": "result",
+      "session_id": "fixture-shared-session",
+      "total_cost_usd": 0.02,
+      "duration_ms": 2500,
+      "num_turns": 3
+    }
+  },
+  {
+    "kind": "run_end",
+    "runId": "history-2",
+    "ts": "2026-09-09T16:00:37.000Z",
+    "status": "completed"
+  },
+  {
+    "kind": "run_start",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:38.000Z",
+    "prompt": "Follow up on the client review and add a concise test plan."
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:39.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "init",
+      "session_id": "fixture-shared-session",
+      "cwd": "/tmp/trajectory-fixture"
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:40.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "client-resumed",
+            "name": "Agent",
+            "input": {
+              "description": "Continue client review",
+              "resume": "agent-client-stable"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:41.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "task_started",
+      "tool_use_id": "client-resumed",
+      "task_id": "task-followup",
+      "is_backgrounded": true
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:42.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "client-resumed",
+            "content": "Async agent launched",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:43.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": "client-resumed",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "followup-read",
+            "name": "Read",
+            "input": {
+              "file_path": "/tmp/trajectory-fixture/plan.md"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:44.000Z",
+    "event": {
+      "type": "user",
+      "parent_tool_use_id": "client-resumed",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "followup-read",
+            "content": "Cover keyboard navigation and refresh recovery.",
+            "is_error": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:45.000Z",
+    "event": {
+      "type": "system",
+      "subtype": "task_notification",
+      "tool_use_id": "client-resumed",
+      "status": "completed",
+      "summary": "Review returned",
+      "usage": {
+        "tool_uses": 2
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:46.000Z",
+    "event": {
+      "type": "assistant",
+      "parent_tool_use_id": null,
+      "message": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Test plan: verify keyboard controls, refresh recovery, and independent run history."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "kind": "claude",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:47.000Z",
+    "event": {
+      "type": "result",
+      "session_id": "fixture-shared-session",
+      "total_cost_usd": 0.02,
+      "duration_ms": 2500,
+      "num_turns": 3
+    }
+  },
+  {
+    "kind": "run_end",
+    "runId": "history-3",
+    "ts": "2026-09-09T16:00:48.000Z",
+    "status": "completed"
+  }
+]

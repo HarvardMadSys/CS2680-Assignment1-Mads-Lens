@@ -1,0 +1,673 @@
+/* All mascot motion is opt-in to the system's motion preference. SVG transforms
+   animate independently of surrounding buttons, selection rings and layout. */
+.agent-avatar {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.agent-avatar-body {
+  transform-origin: 24px 39px;
+}
+.agent-avatar-stunt {
+  transform-origin: 24px 25px;
+}
+.agent-avatar-accessory {
+  transform-origin: 24px 17px;
+}
+.agent-avatar-limbs {
+  transform-origin: 24px 32px;
+}
+.agent-avatar-shadow {
+  transform-origin: 24px 45px;
+}
+.agent-avatar[data-character="robot"] {
+  --agent-motion: agent-robot;
+  --agent-tempo: 1.8s;
+}
+.agent-avatar[data-character="sprout"] {
+  --agent-motion: agent-sway;
+  --agent-tempo: 2.6s;
+}
+.agent-avatar[data-character="jelly"] {
+  --agent-motion: agent-jelly;
+  --agent-tempo: 2s;
+}
+.agent-avatar[data-character="owl"] {
+  --agent-motion: agent-peer;
+  --agent-tempo: 3.4s;
+}
+.agent-avatar[data-character="alien"] {
+  --agent-motion: agent-orbit;
+  --agent-tempo: 2.8s;
+}
+.agent-avatar[data-character="toast"] {
+  --agent-motion: agent-pop;
+  --agent-tempo: 2.4s;
+}
+.agent-avatar[data-character="wizard"] {
+  --agent-motion: agent-spell;
+  --agent-tempo: 3s;
+}
+.agent-avatar[data-character="dino"] {
+  --agent-motion: agent-stomp;
+  --agent-tempo: 1.6s;
+}
+.agent-avatar[data-character="cat"] {
+  --agent-motion: agent-pounce;
+  --agent-tempo: 3.2s;
+}
+.agent-avatar[data-character="ghost"] {
+  --agent-motion: agent-float;
+  --agent-tempo: 3.2s;
+}
+.agent-avatar[data-character="star"] {
+  --agent-motion: agent-twinkle;
+  --agent-tempo: 2.8s;
+}
+.agent-avatar[data-character="crab"] {
+  --agent-motion: agent-scuttle;
+  --agent-tempo: 1.6s;
+}
+
+@keyframes agent-blink {
+  0%,
+  43%,
+  49%,
+  100% {
+    transform: scaleY(1);
+  }
+  46% {
+    transform: scaleY(0.08);
+  }
+}
+@keyframes agent-glance {
+  0%,
+  25%,
+  100% {
+    transform: translate(0, 0);
+  }
+  35%,
+  48% {
+    transform: translate(1.4px, -0.6px);
+  }
+  65%,
+  78% {
+    transform: translate(-1.3px, 0.4px);
+  }
+}
+@keyframes agent-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-2px) scale(0.97, 1.03);
+  }
+  70% {
+    transform: translateY(0) scale(1.04, 0.96);
+  }
+}
+@keyframes agent-robot {
+  0%,
+  45%,
+  100% {
+    transform: rotate(0);
+  }
+  15%,
+  30% {
+    transform: rotate(-5deg);
+  }
+  60%,
+  75% {
+    transform: rotate(5deg) translateY(-1px);
+  }
+}
+@keyframes agent-sway {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes agent-jelly {
+  0%,
+  100% {
+    transform: scale(1.03, 0.95);
+  }
+  50% {
+    transform: translateY(-3px) scale(0.96, 1.04);
+  }
+}
+@keyframes agent-peer {
+  0%,
+  25%,
+  100% {
+    transform: rotate(0);
+  }
+  35%,
+  60% {
+    transform: rotate(-9deg);
+  }
+  75%,
+  85% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes agent-orbit {
+  0%,
+  100% {
+    transform: translate(-1px, -1px) rotate(-4deg);
+  }
+  50% {
+    transform: translate(1px, -3px) rotate(4deg);
+  }
+}
+@keyframes agent-pop {
+  0%,
+  65%,
+  100% {
+    transform: translateY(0);
+  }
+  72% {
+    transform: scale(1.06, 0.94);
+  }
+  82% {
+    transform: translateY(-4px) rotate(-4deg);
+  }
+  92% {
+    transform: scale(1.04, 0.97);
+  }
+}
+@keyframes agent-spell {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(-1px);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-3px);
+  }
+}
+@keyframes agent-stomp {
+  0%,
+  50%,
+  100% {
+    transform: translateY(0) scale(1.03, 0.97);
+  }
+  25% {
+    transform: translateY(-2px) rotate(-6deg);
+  }
+  75% {
+    transform: translateY(-2px) rotate(6deg);
+  }
+}
+@keyframes agent-pounce {
+  0%,
+  55%,
+  100% {
+    transform: rotate(0);
+  }
+  65% {
+    transform: scale(1.08, 0.9);
+  }
+  78% {
+    transform: translateY(-3px) rotate(5deg);
+  }
+  90% {
+    transform: rotate(-3deg);
+  }
+}
+@keyframes agent-float {
+  0%,
+  100% {
+    transform: translate(-1px, 0) rotate(-4deg);
+  }
+  50% {
+    transform: translate(1px, -4px) rotate(4deg);
+  }
+}
+@keyframes agent-twinkle {
+  0%,
+  100% {
+    transform: rotate(-8deg) scale(0.96);
+  }
+  50% {
+    transform: rotate(8deg) scale(1.02);
+  }
+}
+@keyframes agent-scuttle {
+  0%,
+  100% {
+    transform: translateX(-1.5px) rotate(-3deg);
+  }
+  50% {
+    transform: translateX(1.5px) rotate(3deg);
+  }
+}
+@keyframes agent-wiggle {
+  0%,
+  100% {
+    transform: rotate(-9deg);
+  }
+  50% {
+    transform: rotate(9deg);
+  }
+}
+@keyframes agent-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.1;
+  }
+  50% {
+    transform: scaleX(0.8);
+    opacity: 0.06;
+  }
+}
+@keyframes agent-hello {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-10deg) translateY(-2px);
+  }
+  65% {
+    transform: rotate(8deg) translateY(-2px);
+  }
+}
+@keyframes agent-wink {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  30%,
+  70% {
+    transform: scaleY(0.1);
+  }
+}
+/* One stunt at the end of each 30-second cycle. An outer SVG group keeps the
+   flip independent of working and hover animations, with no JS timers. */
+@keyframes agent-backflip {
+  0%,
+  93% {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+  94% {
+    transform: translateY(2px) rotate(0) scale(1.08, 0.84);
+  }
+  95.5% {
+    transform: translateY(-9px) rotate(-60deg) scale(0.96, 1.04);
+  }
+  97% {
+    transform: translateY(-14px) rotate(-180deg) scale(1);
+  }
+  98.5% {
+    transform: translateY(-8px) rotate(-300deg) scale(1);
+  }
+  99.4% {
+    transform: translateY(2px) rotate(-360deg) scale(1.12, 0.84);
+  }
+  100% {
+    transform: translateY(0) rotate(-360deg) scale(1);
+  }
+}
+@keyframes agent-stunt-shadow {
+  0%,
+  93%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.1;
+  }
+  94%,
+  99.4% {
+    transform: scaleX(1.15);
+    opacity: 0.15;
+  }
+  97% {
+    transform: scaleX(0.55);
+    opacity: 0.04;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .agent-avatar[data-character="pip"] .agent-avatar-stunt {
+    animation: agent-backflip 30s ease-in-out infinite;
+  }
+  .agent-avatar-eye {
+    animation: agent-blink 5.6s ease-in-out infinite;
+    animation-delay: var(--agent-delay, 0s);
+  }
+  .agent-avatar-working .agent-avatar-body {
+    animation: var(--agent-motion, agent-bounce) var(--agent-tempo, 2s) ease-in-out infinite;
+    animation-delay: var(--agent-delay, 0s);
+  }
+  .agent-avatar-working .agent-avatar-pupil {
+    animation: agent-glance 4.8s ease-in-out infinite;
+    animation-delay: var(--agent-delay, 0s);
+  }
+  .agent-avatar-working .agent-avatar-accessory,
+  .agent-avatar-working .agent-avatar-limbs {
+    animation: agent-wiggle 1.3s ease-in-out infinite;
+    animation-delay: var(--agent-delay, 0s);
+  }
+  .agent-avatar-working .agent-avatar-shadow {
+    animation: agent-shadow var(--agent-tempo, 2s) ease-in-out infinite;
+    animation-delay: var(--agent-delay, 0s);
+  }
+  .agent-avatar[data-character="pip"] .agent-avatar-shadow {
+    animation: agent-stunt-shadow 30s ease-in-out infinite;
+  }
+  .agent-avatar:hover .agent-avatar-body,
+  .agent-crew-card:is(:hover, :focus-visible) .agent-avatar-body,
+  .agent-crew-trigger:is(:hover, :focus-visible) .agent-avatar-body {
+    animation: agent-hello 0.65s ease-in-out;
+  }
+  .agent-avatar:hover .agent-avatar-eye-right,
+  .agent-crew-card:is(:hover, :focus-visible) .agent-avatar-eye-right {
+    animation: agent-wink 0.65s ease-in-out;
+  }
+}
+
+/* The crew's little casting room. */
+.agent-crew-trigger {
+  padding: 3px;
+  margin: -3px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.agent-crew-trigger:hover {
+  background: var(--accent);
+}
+.agent-crew-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.agent-crew-dialog {
+  width: 800px;
+  max-width: calc(100vw - 2rem);
+  max-height: 90svh;
+  overflow-y: auto;
+  padding: 28px;
+  gap: 20px;
+  border-radius: 24px;
+  background: var(--background);
+  box-shadow: 0 24px 90px #352b401a;
+}
+.agent-crew-heading {
+  display: grid;
+  gap: 10px;
+  padding-right: 15px;
+}
+.agent-crew-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  color: var(--muted-foreground);
+}
+.agent-crew-title {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+.agent-crew-heading [data-slot="dialog-description"] {
+  font-size: 12px;
+}
+.agent-crew-spotlight {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 22px;
+  padding: 20px 24px;
+  min-height: 180px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background-color: var(--secondary);
+  background-image: radial-gradient(var(--border) 0.8px, transparent 0.8px);
+  background-size: 12px 12px;
+}
+.agent-crew-portrait {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 140px;
+  grid-row: 1 / 3;
+  flex-shrink: 0;
+}
+.agent-crew-doodle {
+  position: absolute;
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+.agent-crew-doodle-one {
+  top: 2px;
+  right: 4px;
+  font-size: 25px;
+  transform: rotate(15deg);
+}
+.agent-crew-doodle-two {
+  bottom: 12px;
+  left: 0;
+  font-size: 16px;
+  transform: rotate(-15deg);
+}
+.agent-crew-bio {
+  min-width: 0;
+}
+.agent-crew-record {
+  min-width: 0;
+  grid-column: 2;
+}
+.agent-crew-origin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.agent-crew-origin > span {
+  font-size: 15px;
+}
+.agent-crew-specialty {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--card);
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+}
+.agent-crew-story {
+  font-size: 12px;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+.agent-crew-experience {
+  margin-top: 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+.agent-crew-experience > span {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.agent-crew-bio h3 {
+  margin-top: 7px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.agent-crew-bio h3 span {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted-foreground);
+}
+.agent-crew-quote {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  font-style: italic;
+}
+.agent-crew-activity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.agent-crew-dot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+}
+.agent-crew-dot.is-working {
+  background: #4a9962;
+}
+.agent-crew-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.agent-crew-hint {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.agent-crew-mode {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--secondary);
+}
+.agent-crew-mode button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 9px;
+  font-size: 10px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.agent-crew-mode button[aria-pressed="true"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px #352b4012;
+}
+.agent-crew-mode button:focus-visible,
+.agent-crew-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.agent-crew-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.agent-crew-card {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 10px 4px 9px;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  background: var(--card);
+}
+.agent-crew-card:hover {
+  background: var(--secondary);
+}
+.agent-crew-card[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+.agent-crew-card-name {
+  font-size: 11px;
+  font-weight: 650;
+}
+.agent-crew-card-detail {
+  font-size: 8px;
+  color: var(--muted-foreground);
+  line-height: 1.4;
+  max-width: 88px;
+  min-height: 12px;
+  text-align: center;
+}
+.agent-crew-footnote {
+  color: var(--muted-foreground);
+  font-size: 10px;
+  text-align: center;
+}
+@media (max-width: 600px) {
+  .agent-crew-dialog {
+    padding: 20px;
+    gap: 16px;
+  }
+  .agent-crew-title {
+    font-size: 23px;
+  }
+  .agent-crew-spotlight {
+    grid-template-columns: 75px minmax(0, 1fr);
+    padding: 15px 12px;
+    gap: 12px;
+    min-height: 155px;
+  }
+  .agent-crew-portrait {
+    width: 75px;
+    grid-row: 1;
+  }
+  .agent-crew-portrait > svg {
+    width: 75px;
+    height: 75px;
+  }
+  .agent-crew-record {
+    grid-column: 1 / -1;
+  }
+  .agent-crew-bio h3 {
+    font-size: 24px;
+  }
+  .agent-crew-bio .agent-crew-eyebrow {
+    font-size: 8px;
+  }
+  .agent-crew-quote {
+    font-size: 12px;
+  }
+  .agent-crew-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .agent-crew-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .agent-crew-card-detail {
+    font-size: 8px;
+  }
+  .agent-crew-card {
+    padding: 7px 2px;
+  }
+}

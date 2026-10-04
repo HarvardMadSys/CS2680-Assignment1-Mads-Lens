@@ -1,0 +1,6 @@
+scenario=09-compact
+exit=0
+seconds=47
+cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
+flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 2 --max-turns 14
+prompt=Read every file under src/ and tests/ one at a time, then read README.md and sample.log, and finally summarize the project in three sentences. Do not modify anything.

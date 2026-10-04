@@ -1,0 +1,6 @@
+scenario=06-max-turns-error
+exit=1
+seconds=18
+cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
+flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 2 --max-turns 1
+prompt=Run the test suite with python3 -m pytest -q, then fix whatever fails, then run the tests again.

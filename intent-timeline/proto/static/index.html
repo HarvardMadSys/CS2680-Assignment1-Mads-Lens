@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Trajectory Viewer</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Claude Code <span>trajectory viewer</span></div>
+  <form class="where" autocomplete="off" onsubmit="return false">
+    <label>mode
+      <select id="mode">
+        <option value="live">live — spawn claude -p</option>
+        <option value="replay">replay — a recording</option>
+      </select>
+    </label>
+    <label id="fixture-wrap" hidden>recording <select id="fixture"></select></label>
+    <label id="cwd-wrap" class="grow">working directory <input id="cwd" type="text" spellcheck="false"></label>
+  </form>
+  <div class="topbar-right">
+    <button id="clear" class="ghost small" type="button" title="forget finished runs (the server keeps running ones)">clear</button>
+    <span id="server-state" class="chip">connecting…</span>
+    <button id="toggle-outline" class="ghost small" type="button" aria-controls="outline">outline</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="dialogue">
+    <div id="runs" class="runs"><p class="empty muted">No runs yet. Type a request below and press Run, or pick a recording to replay.</p></div>
+  </main>
+  <aside id="outline" class="outline">
+    <h2>outline</h2>
+    <div id="outline-body" class="outline-body"></div>
+  </aside>
+</div>
+
+<form id="composer" class="composer" autocomplete="off">
+  <textarea id="prompt" rows="2" placeholder="What should the agent do in that directory?"></textarea>
+  <div class="composer-side">
+    <label class="check" id="resume-wrap"><input type="checkbox" id="resume"> follow-up in the same session <code id="resume-id" class="muted"></code></label>
+    <label class="check" id="partial-wrap"><input type="checkbox" id="partial"> stream partial tokens</label>
+    <span class="spacer"></span>
+    <button type="button" id="stop" class="ghost" disabled>Stop</button>
+    <button type="submit" id="run">Run</button>
+  </div>
+</form>
+
+<script src="/vendor/marked.min.js"></script>
+<script src="/vendor/purify.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
