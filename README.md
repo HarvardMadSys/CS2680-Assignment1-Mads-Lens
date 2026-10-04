@@ -25,9 +25,14 @@ without installing Claude Code or spending any usage.
 ```bash
 git clone https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git
 cd CS2680-Assignment1-Mads-Lens/<app>
+./start.sh
 ```
 
-Then follow that app's README. Every app serves on **port 8000** and listens on all interfaces (`0.0.0.0`), so
+`start.sh` checks the app's requirements, installs its dependencies on the first run (and again only when they
+change), and starts it the way that app's README does. In Mission Control and Sankey Flow, `./start.sh --demo`
+starts with the bundled recordings instead of Claude. The app's README covers the rest.
+
+Every app serves on **port 8000** and listens on all interfaces (`0.0.0.0`), so
 you can open it at http://localhost:8000 or, from another machine, at `http://<your-machine-ip>:8000`. Set
 `PORT` (and `HOST`) to change this.
 
