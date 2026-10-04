@@ -1,0 +1,6 @@
+scenario=06b-bad-resume
+exit=1
+seconds=1
+cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
+flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 1 --resume 00000000-0000-0000-0000-000000000000
+prompt=Continue where we left off.

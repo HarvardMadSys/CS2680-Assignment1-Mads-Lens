@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AIPatrol</title>
+    <script>
+      // Stamp the saved theme before first paint so there is no flash of the
+      // wrong palette. "system" leaves the attribute off and lets CSS decide.
+      try {
+        var t = localStorage.getItem("cc-ui.theme");
+        if (t === "light" || t === "dark") {
+          document.documentElement.setAttribute("data-theme", t);
+        }
+        var s = localStorage.getItem("cc-ui.scheme");
+        if (["ember", "forest", "plum", "mono"].indexOf(s) !== -1) {
+          document.documentElement.setAttribute("data-scheme", s);
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

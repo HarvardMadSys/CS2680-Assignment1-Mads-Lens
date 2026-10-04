@@ -1,0 +1,6 @@
+scenario=02-parallel-reads
+exit=0
+seconds=21
+cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
+flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 2 
+prompt=Read these three files in parallel, issuing all three Read calls in a single step: src/logparse/parser.py, src/logparse/cli.py, tests/test_parse.py. Then give me a one-sentence summary of each file. Do not modify anything.

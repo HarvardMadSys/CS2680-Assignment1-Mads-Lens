@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# Set up and run Trajectory from anywhere. Symlink it wherever it is convenient:
+#   ln -s "$PWD/trajectory" ~/Documents/coder/trajectory
+set -euo pipefail
+
+# resolve our own directory, following symlinks, so the script works from any cwd
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do
+  dir=$(cd -P "$(dirname "$src")" && pwd)
+  src=$(readlink "$src")
+  [[ $src != /* ]] && src="$dir/$src"
+done
+ROOT=$(cd -P "$(dirname "$src")" && pwd)
+cd "$ROOT"
+
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+  DIM=$'\033[2m'; ACC=$'\033[35m'; ERR=$'\033[31m'; OK=$'\033[32m'; OFF=$'\033[0m'
+else
+  DIM=""; ACC=""; ERR=""; OK=""; OFF=""
+fi
+say()  { printf '%b\n' "$*"; }
+step() { printf '%s→%s %s\n' "$ACC" "$OFF" "$*"; }
+warn() { printf '%s!%s %s\n' "$ERR" "$OFF" "$*" >&2; }
+die()  { warn "$*"; exit 1; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+ver()  { "$1" --version 2>/dev/null | head -1; }
+
+check() {
+  local ok=0
+  have node    || { warn "node is not installed (need >= 20)"; ok=1; }
+  have python3 || { warn "python3 is not installed (need >= 3.10)"; ok=1; }
+  # replays need no CLI, so a missing `claude` only matters once you start a live run
+  have claude  || warn "the 'claude' CLI is not on PATH — replays work, live runs will fail until Claude Code is installed"
+
+  if have node; then
+    local major; major=$(node -p 'process.versions.node.split(".")[0]')
+    [ "$major" -ge 20 ] || { warn "node $major is too old (need >= 20)"; ok=1; }
+  fi
+  if have python3; then
+    python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' \
+      || { warn "python3 $(python3 -V 2>&1 | cut -d" " -f2) is too old (need >= 3.10)"; ok=1; }
+  fi
+  # an exported key would take precedence over your Claude Code login and bill that key instead
+  [ -z "${ANTHROPIC_API_KEY:-}" ] || warn "ANTHROPIC_API_KEY is set in this shell; runs strip it, but unset it to be safe"
+  return $ok
+}
+
+doctor() {
+  say "${DIM}$ROOT${OFF}"
+  have node    && say "  node     $(ver node)"
+  have python3 && say "  python   $(python3 -V 2>&1 | cut -d' ' -f2)"
+  have claude  && say "  claude   $(ver claude)"
+  [ -d server/.venv ]        && say "  ${OK}✓${OFF} python env" || say "  ${DIM}·${OFF} python env not installed"
+  [ -d client/node_modules ] && say "  ${OK}✓${OFF} client deps" || say "  ${DIM}·${OFF} client deps not installed"
+  [ -d node_modules/electron ] && say "  ${OK}✓${OFF} electron"  || say "  ${DIM}·${OFF} electron not installed (optional, desktop app only)"
+  [ -f client/.next/BUILD_ID ] && say "  ${OK}✓${OFF} client built" || say "  ${DIM}·${OFF} client not built"
+  [ -f data/trajectory.db ]  && say "  ${OK}✓${OFF} database  $(du -h data/trajectory.db | cut -f1)" \
+                             || say "  ${DIM}·${OFF} database will be created on first run"
+  check && say "\n${OK}ready${OFF}" || die "fix the above, then run again"
+}
+
+# Python env + client deps: everything the browser version needs. Electron (the optional desktop
+# shell) is only installed when the desktop app is first opened.
+setup() {
+  check || die "missing prerequisites"
+  step "installing dependencies (this takes a minute the first time)"
+  node scripts/setup.mjs
+}
+
+installed() { [ -d server/.venv ] && [ -d client/node_modules ]; }
+
+dev_running() { pgrep -f "server.mjs --dev" >/dev/null 2>&1; }
+
+# The tool-call summariser. llama-server pulls the GGUF from the Hub on first use and caches it in
+# ~/.cache/llama.cpp, so the repo stays small and a fresh clone builds without waiting on weights.
+# Nothing here is required: with no model served, summaries fall back to a heuristic.
+MODEL_REPO=${MODEL_REPO:-LiquidAI/LFM2.5-2.6B-GGUF:Q4_K_M}
+MODEL_PORT=${MODEL_PORT:-8088}
+
+model() {
+  have llama-server || die "llama-server is not on PATH — 'brew install llama.cpp' (or build llama.cpp)"
+  step "serving $MODEL_REPO on :$MODEL_PORT — first run downloads ~1.7GB, then it is cached"
+  # --reasoning-budget 0 empties LFM2.5's mandatory <think> block: a label needs no deliberation
+  exec llama-server --hf-repo "$MODEL_REPO" --port "$MODEL_PORT" \
+    --ctx-size 4096 --parallel 2 --jinja --reasoning-budget 0 --log-disable
+}
+
+build() {
+  dev_running && die "'trajectory dev' is running — stop it first, it shares client/.next"
+  step "building the client"
+  npm run build
+}
+
+app() {
+  installed || setup
+  if [ ! -d node_modules/electron ]; then
+    step "installing the desktop shell (Electron)"
+    npm install --silent
+  fi
+  [ -f client/.next/BUILD_ID ] || build
+  step "starting Trajectory"
+  exec npm start
+}
+
+case "${1:-app}" in
+  app|"")   app ;;
+  dev)      check || die "missing prerequisites"
+            installed || setup
+            step "web on ${HOST:-0.0.0.0}:${PORT:-8000}, api on 127.0.0.1:${API_PORT:-${PORT_API:-8001}}, hot reload — ctrl-c to stop"
+            exec npm run dev ;;
+  setup)    setup; say "\n${OK}done${OFF} — run '${0##*/} dev' and open http://localhost:${PORT:-8000}" ;;
+  build)    build ;;
+  doctor)   doctor ;;
+  model)    model ;;
+  record)   shift; [ $# -ge 3 ] || die "usage: ${0##*/} record <name> <dir> \"<prompt>\""
+            exec npm run record -- "$@" ;;
+  clean)    step "removing build artefacts and installed dependencies"
+            rm -rf client/.next client/node_modules node_modules server/.venv
+            say "kept data/ — use 'reset' to drop the database too" ;;
+  reset)    step "removing everything, including the database"
+            rm -rf client/.next client/node_modules node_modules server/.venv data ;;
+  -h|--help|help)
+    cat <<EOF
+${ACC}trajectory${OFF} — drive Claude Code and watch the run
+
+  ${ACC}trajectory dev${OFF}        run in the browser: http://localhost:8000 (PORT, HOST to change;
+                        the API listens on 127.0.0.1:8001, API_PORT to change)
+  ${ACC}trajectory${OFF}            set up and build if needed, then open the desktop app (Electron)
+  ${ACC}trajectory setup${OFF}      install dependencies only (Python env + client)
+  ${ACC}trajectory build${OFF}      rebuild the client
+  ${ACC}trajectory doctor${OFF}     check prerequisites and what is installed
+  ${ACC}trajectory model${OFF}      serve LFM2.5-2.6B locally, so tool calls get plain-English
+                        one-liners instead of raw shell (optional; run it alongside the app)
+  ${ACC}trajectory record${OFF} <name> <dir> "<prompt>"
+                        record a run to server/fixtures for replay
+  ${ACC}trajectory clean${OFF}      remove builds and dependencies (keeps data/)
+  ${ACC}trajectory reset${OFF}      also delete the database
+
+installed at $ROOT
+EOF
+    ;;
+  *) die "unknown command '$1' — try '${0##*/} help'" ;;
+esac

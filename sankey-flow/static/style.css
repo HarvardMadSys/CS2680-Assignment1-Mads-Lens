@@ -1,0 +1,251 @@
+/* Custom styles on top of daisyUI: layout glue, the trajectory card / modal placeholders, the
+   Cytoscape graph tooltip, the Pace cat, code blocks and the markdown-lite renderer. Everything
+   else comes from daisyUI component classes and Tailwind utilities; colors use daisyUI's theme
+   variables so light/dark just work. */
+
+[hidden] { display: none !important; } /* class display rules must not resurrect hidden elements */
+html, body { height: 100%; }
+body { font-size: 14px; }
+
+/* ---------- two panes ---------- */
+main.split { grid-template-columns: minmax(300px, 36%) minmax(0, 1fr); }
+@media (max-width: 860px) {
+  main.split { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; }
+  aside.tree-pane { border-right: none; border-bottom: 1px solid var(--color-base-300); }
+}
+
+/* ---------- trajectory: summary card (left pane) + full-screen modal ---------- */
+/* CCFlow (static/flow.js) renders the agent-path diagram into #flow-thumb (thumbnail) and #flow-root (full). If the
+   script ever fails to load the boxes stay empty and show this muted fallback; once CCFlow renders it never triggers. */
+#flow-thumb:empty::before, #flow-root:empty::before {
+  content: 'flow preview'; display: flex; align-items: center; justify-content: center; height: 100%;
+  font-size: 11px; opacity: 0.5; letter-spacing: 0.02em;
+}
+#flow-root:empty::before { content: 'Flow view'; font-size: 13px; }
+#flow-toolbar:empty { display: none; }
+#trajectory-modal .modal-box { overflow: hidden; } /* the panels manage their own scrolling; no stray scrollbars on the box */
+
+/* ---------- CCFlow agent-path diagram (static/flow.js) ---------- */
+/* Every colour the component draws is a --flow-* variable. Light values live on .flow-root; CCFlow.applyTheme() adds
+   .flow-dark for the dark set. Structure (ink / surface / muted / line) maps onto the daisyUI theme so it follows
+   light/dark; the outcome colours map onto the daisyUI status palette (success / error / warning / info); the eight
+   categorical identity hues are the validated dataviz set (validator: all hard gates pass in both modes — the light
+   sub-3:1 hues get relief from the always-on node labels). */
+/* #flow-toolbar holds the legend chips, which are re-parented out of .flow-root, so the --flow-* set is declared here too. */
+.flow-root, #flow-toolbar {
+  --flow-run:        #64748b;                                                  /* Runs column — structural slate */
+  --flow-agent:      #2a78d6;                                                  /* Claude (main actor) — blue */
+  --flow-subagent:   #4a3aa7;                                                  /* subagent actors + the Agent tool — violet */
+  --flow-llm:        #eb6834;                                                  /* LLM turns — orange */
+  --flow-tool-shell: #eda100;                                                  /* Bash — yellow */
+  --flow-tool-file:  #1baf7a;                                                  /* Read/Write/Edit/Glob/Grep… — aqua */
+  --flow-tool-web:   #e87ba4;                                                  /* WebSearch/WebFetch — magenta */
+  --flow-tool-other: #008300;                                                  /* ToolSearch/Skill/mcp__*/"Other tools" — green */
+  --flow-ok:         var(--color-success);
+  --flow-fail:       var(--color-error);
+  --flow-stop:       var(--color-warning);
+  --flow-pending:    var(--color-info);                                        /* "In progress" (live only) */
+  --flow-ink:        var(--color-base-content);
+  --flow-muted:      color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  --flow-surface:    var(--color-base-100);
+  --flow-line:       color-mix(in oklab, var(--color-base-content) 14%, transparent);
+  position: relative; font-family: inherit; color: var(--flow-ink);
+}
+.flow-root.flow-dark, #flow-toolbar.flow-dark {
+  --flow-run:        #94a3b8;
+  --flow-agent:      #3987e5;
+  --flow-subagent:   #7c3aed;
+  --flow-llm:        #d95926;
+  --flow-tool-shell: #c98500;
+  --flow-tool-file:  #199e70;
+  --flow-tool-web:   #d55181;
+  --flow-tool-other: #008300;
+}
+.flow-svg { display: block; overflow: hidden; }                               /* must-fix 1: clip, never spill outside the SVG */
+.flow-svg text { font-family: inherit; pointer-events: none; user-select: none; }
+.flow-svg .head { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; fill: var(--flow-muted); }
+.flow-svg .label { font-size: 12.5px; font-weight: 600; fill: var(--flow-ink); }
+.flow-svg .sub { font-size: 11px; fill: var(--flow-muted); font-variant-numeric: tabular-nums; }
+.flow-svg .empty { font-size: 13px; fill: var(--flow-muted); text-anchor: middle; }
+.flow-node { cursor: pointer; transition: opacity .2s; }
+.flow-node .box { fill-opacity: .2; stroke-width: 1; stroke-opacity: .75; transition: fill-opacity .15s, stroke-opacity .15s; }
+.flow-node:hover .box, .flow-node.is-sel .box { fill-opacity: .34; stroke-opacity: 1; }
+.flow-node:focus-visible { outline: none; }
+.flow-node:focus-visible .box { fill-opacity: .34; stroke-opacity: 1; stroke-width: 2; }
+.flow-node.is-sel .box { stroke-width: 2; }
+.flow-node.is-soft { opacity: .6; }                                           /* three-level emphasis: endpoint of a lit ribbon */
+.flow-node.is-dim { opacity: .25; }
+.flow-node.is-pending .box { stroke-dasharray: 4 3; }
+.flow-root[data-mode="thumb"] .flow-node { cursor: default; }
+.flow-root[data-mode="thumb"] .flow-node .box { fill-opacity: 1; stroke: var(--flow-ink); stroke-opacity: .14; stroke-width: .5; } /* must-fix 8: faint ink stroke on thumb boxes */
+.flow-link { fill: none; stroke-opacity: .42; cursor: pointer; transition: stroke-opacity .15s, opacity .2s; }
+.flow-link:hover, .flow-link.is-hot { stroke-opacity: .82; }
+.flow-link.is-dim { opacity: .1; }
+.flow-root[data-mode="thumb"] .flow-link { stroke-opacity: .55; }
+.flow-root[data-interactive="false"] .flow-svg { pointer-events: none; }
+.flow-legend { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 12px; }
+.flow-legend-item { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--flow-line);
+  background: transparent; color: var(--flow-ink); font: inherit; font-size: 12px; line-height: 1.2; cursor: pointer; transition: opacity .15s, border-color .15s; }
+.flow-legend-item .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.flow-legend-item:hover { border-color: var(--flow-muted); }
+.flow-legend-item.is-on { border-color: var(--flow-ink); }
+.flow-legend-item.is-off { opacity: .4; }
+.flow-legend-hint { color: var(--flow-muted); font-size: 11px; }
+.flow-tip { position: absolute; left: 0; top: 0; z-index: 5; pointer-events: none; min-width: 170px; max-width: 300px; padding: 8px 10px; border-radius: 8px;
+  background: var(--flow-ink); color: var(--flow-surface); font-size: 12px; line-height: 1.4; box-shadow: 0 4px 16px rgb(0 0 0 / .28); }
+.flow-tip[hidden] { display: none; }
+.flow-tip .t { font-weight: 600; word-break: break-word; }
+.flow-tip .c { opacity: .7; font-size: 11px; margin-bottom: 5px; }
+.flow-tip .r { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+.flow-tip .r b { font-weight: 600; }
+.flow-tip .r i { font-style: normal; opacity: .7; }
+.flow-tip .m { opacity: .8; font-size: 11px; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .flow-node, .flow-node .box, .flow-link { transition: none; } }
+
+/* ---------- trajectory graph (Cytoscape.js, Timeline tab) ---------- */
+#tree { display: block; }
+.graph-tip {
+  position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, -100%);
+  max-width: 16rem; padding: 4px 8px; border-radius: 0.375rem;
+  background: var(--color-neutral); color: var(--color-neutral-content);
+  font-size: 12px; line-height: 1.35; white-space: pre-wrap; word-break: break-word;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+/* ---------- pace strip (top of the left pane): cat avatar + TTFT / TPOT / latency tiles ---------- */
+.pace-cat { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; margin-left: 4px; z-index: 20; } /* z-index: the tooltip must sit above the graph's canvases; the z's and motion lines overflow the box by a few px */
+.pace .cat { --cat-size: 72px; }
+.pace-cat.tooltip-bottom > .tooltip-content { inset: var(--tt-off) auto auto 0; --tt-trans: 0; text-align: left; max-width: 18rem; font-size: 12px; line-height: 1.35; padding: 0.5rem 0.625rem; }
+.pace-cat .tooltip-content p { margin: 0 0 0.35rem; }
+.pace-cat .tooltip-content p:last-child { margin-bottom: 0; }
+.pace .cat-state { font-size: 11px; line-height: 1; opacity: 0.7; min-height: 11px; }
+.pace .stats { min-width: 0; }
+.pace .stat { padding: 0.3rem 0.6rem; }
+.pace .stat-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.pace .stat-value { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pace .stat-desc { font-size: 10px; }
+
+/* Cat avatar (cc-cat-2). Root .cat, states via data-state="sleep|sit|walk|run".
+   Variables, all optional: --cat-speed (divides every animation duration; 2 = twice as fast),
+   --cat-fur (body color), --cat-ink (defaults to currentColor, so it follows the theme's text color),
+   --cat-size (width; height is 0.8x). All internal classes are cat-* prefixed and keyframes cat-*. */
+.cat { --s: calc(1s / var(--cat-speed, 1)); display: inline-block; width: var(--cat-size, 4.5em); line-height: 0; color: inherit; vertical-align: middle; }
+.cat svg { width: 100%; height: auto; overflow: visible; display: block; }
+.cat * { transform-box: fill-box; }
+.cat .cat-fur { fill: var(--cat-fur, #b3a79b); stroke: var(--cat-ink, currentColor); stroke-width: 1.6; stroke-opacity: 0.45; stroke-linejoin: round; }
+.cat .cat-tail { fill: none; stroke: var(--cat-fur, #b3a79b); stroke-width: 7; stroke-linecap: round; stroke-opacity: 1; paint-order: stroke; transform-origin: 100% 100%; }
+.cat .cat-inner { fill: var(--cat-ink, currentColor); opacity: 0.25; }
+.cat .cat-eyes { fill: var(--cat-ink, currentColor); stroke: var(--cat-ink, currentColor); stroke-width: 2; stroke-linecap: round; transform-origin: 50% 50%; }
+.cat .cat-shut { fill: none; }
+.cat .cat-nose { fill: var(--cat-ink, currentColor); opacity: 0.8; }
+.cat .cat-mouth, .cat .cat-whisk { fill: none; stroke: var(--cat-ink, currentColor); stroke-width: 1.5; stroke-linecap: round; opacity: 0.8; }
+.cat .cat-z { fill: var(--cat-ink, currentColor); font: 700 13px/1 ui-rounded, system-ui, sans-serif; opacity: 0; }
+.cat .cat-z2 { font-size: 15px; }
+.cat .cat-lines { stroke: var(--cat-ink, currentColor); stroke-width: 2.5; stroke-linecap: round; opacity: 0; }
+.cat .cat-leg { transform-origin: 50% 6%; }
+.cat .cat-body, .cat .cat-head, .cat .cat-figure { transform-origin: 50% 100%; }
+.cat .cat-far .cat-leg { filter: brightness(0.82); }
+.cat .cat-body, .cat .cat-head, .cat .cat-tail, .cat .cat-leg, .cat .cat-figure { transition: transform 0.3s ease; } /* smooth pose changes between states */
+/* state: sleep */
+.cat[data-state=sleep] .cat-legs { display: none; }
+.cat[data-state=sleep] .cat-body { transform: translate(0, 3px) scale(1.12, 0.72); animation: cat-breathe calc(var(--s) * 2.6) ease-in-out infinite; }
+.cat[data-state=sleep] .cat-head { transform: translate(-8px, 12px) rotate(-10deg); }
+.cat[data-state=sleep] .cat-tail { transform: translate(4px, 12px) rotate(-62deg); }
+.cat[data-state=sleep] .cat-open { display: none; }
+.cat[data-state=sleep] .cat-z1 { animation: cat-z calc(var(--s) * 2.6) ease-out infinite; }
+.cat[data-state=sleep] .cat-z2 { animation: cat-z calc(var(--s) * 2.6) ease-out infinite calc(var(--s) * -1.3); }
+/* state: sit (upright body, tucked near paws, lowered head, slow tail flick, blinking) */
+.cat[data-state=sit] .cat-far { display: none; }
+.cat[data-state=sit] .cat-body { transform: translate(3px, 0) scale(0.86, 1.22); }
+.cat[data-state=sit] .cat-head { transform: translate(-4px, -4px); }
+.cat[data-state=sit] .cat-lf { transform: translateY(4px) scaleY(0.65); }
+.cat[data-state=sit] .cat-lb { transform: translate(2px, 4px) scaleY(0.6); }
+.cat[data-state=sit] .cat-tail { transform: translate(9px, 0) rotate(-40deg); animation: cat-flick calc(var(--s) * 3.2) ease-in-out infinite; }
+.cat[data-state=sit] .cat-open { animation: cat-blink calc(var(--s) * 4) linear infinite; }
+/* sit/walk/run show open eyes; sleep shows the shut ones */
+.cat:not([data-state=sleep]) .cat-shut { display: none; }
+/* state: walk (far legs run half a phase behind the near ones) */
+.cat[data-state=walk] .cat-lf { animation: cat-swing calc(var(--s) * 0.55) ease-in-out infinite alternate; }
+.cat[data-state=walk] .cat-lb { animation: cat-swing calc(var(--s) * 0.55) ease-in-out infinite alternate-reverse; }
+.cat[data-state=walk] .cat-far .cat-leg { animation-delay: calc(var(--s) * -0.275); }
+.cat[data-state=walk] .cat-figure { animation: cat-bob calc(var(--s) * 0.55) ease-in-out infinite alternate; }
+.cat[data-state=walk] .cat-tail { transform: rotate(-15deg); animation: cat-flick calc(var(--s) * 1.1) ease-in-out infinite; }
+/* state: run */
+.cat[data-state=run] .cat-figure { transform: scale(1.14, 0.86); animation: cat-bob calc(var(--s) * 0.22) ease-in-out infinite alternate; }
+.cat[data-state=run] .cat-lf { animation: cat-gallop calc(var(--s) * 0.22) ease-in-out infinite alternate; }
+.cat[data-state=run] .cat-lb { animation: cat-gallop calc(var(--s) * 0.22) ease-in-out infinite alternate-reverse; }
+.cat[data-state=run] .cat-far .cat-leg { animation-delay: calc(var(--s) * -0.11); }
+.cat[data-state=run] .cat-head { transform: translate(4px, 4px) rotate(6deg); }
+.cat[data-state=run] .cat-tail { transform: translate(2px, 2px) rotate(55deg); }
+.cat[data-state=run] .cat-lines { opacity: 1; animation: cat-dash calc(var(--s) * 0.3) linear infinite; }
+@keyframes cat-breathe { 50% { transform: translate(0, 3px) scale(1.12, 0.78); } }
+@keyframes cat-z { 0% { opacity: 0; transform: translate(0, 4px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -14px); } }
+@keyframes cat-flick { 0%, 60%, 100% { rotate: 0deg; } 75% { rotate: -22deg; } 90% { rotate: 10deg; } }
+@keyframes cat-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } }
+@keyframes cat-swing { from { transform: rotate(-24deg); } to { transform: rotate(24deg); } }
+@keyframes cat-gallop { from { transform: rotate(-42deg); } to { transform: rotate(42deg); } }
+@keyframes cat-bob { from { translate: 0 0; } to { translate: 0 -2px; } }
+@keyframes cat-dash { from { transform: translateX(6px); opacity: 1; } to { transform: translateX(-8px); opacity: 0.15; } }
+@media (prefers-reduced-motion: reduce) {
+  .cat * { animation: none !important; transition: none !important; }
+  .cat[data-state=sleep] .cat-z { opacity: 0.9; }
+  .cat[data-state=walk] .cat-near .cat-lf, .cat[data-state=walk] .cat-far .cat-lb { transform: rotate(18deg); }
+  .cat[data-state=walk] .cat-near .cat-lb, .cat[data-state=walk] .cat-far .cat-lf { transform: rotate(-18deg); }
+  .cat[data-state=run] .cat-near .cat-lf, .cat[data-state=run] .cat-far .cat-lb { transform: rotate(40deg); }
+  .cat[data-state=run] .cat-near .cat-lb, .cat[data-state=run] .cat-far .cat-lf { transform: rotate(-40deg); }
+  .cat[data-state=run] .cat-lines { opacity: 0.7; }
+}
+
+/* ---------- policy panel (composer) ---------- */
+.policy > .collapse-title::after { top: 50%; }          /* compact title: keep the arrow vertically centered */
+.policy .collapse-content { min-width: 0; }
+.policy p.label { display: block; white-space: normal; } /* daisyUI's .label is inline-flex + nowrap; these are wrapping help texts */
+.policy-tools { grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); }
+.policy-tools .tool { display: flex; align-items: center; gap: 0.375rem; font-size: 12px; cursor: pointer; min-width: 0; }
+.policy-tools .tool.extra { font-style: italic; }       /* names learned from the last session start */
+.run-policy:empty { display: none; }
+
+/* ---------- cards ---------- */
+.children:empty { display: none; }
+.tool-progress:empty { display: none; }
+.card[data-status="failed"] { border-left-color: var(--color-error) !important; }
+.chip { line-height: 1; }
+.sysline .sys-detail { min-width: 0; }
+
+/* ---------- code blocks ---------- */
+pre.code {
+  margin: 0; padding: 0.5rem 0.625rem;
+  background: var(--color-base-200); border: 1px solid var(--color-base-300); border-radius: var(--radius-box, 0.5rem);
+  font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto;
+}
+.collapse pre.code, .chat-bubble pre.code { background: var(--color-base-100); }
+pre.code.error { border-color: var(--color-error); }
+pre.code.muted { opacity: 0.7; }
+pre.code.del { border-left: 3px solid var(--color-error); }
+pre.code.add { border-left: 3px solid var(--color-success); }
+table.kv th { font-weight: 400; }
+ul.todos { margin: 0; padding-left: 0.25rem; list-style: none; font-size: 13px; }
+ul.todos li.completed { opacity: 0.6; text-decoration: line-through; }
+
+/* ---------- markdown-lite ---------- */
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 0.5rem; }
+.md h3, .md h4, .md h5, .md h6 { margin: 0.6rem 0 0.35rem; font-size: 14px; font-weight: 600; }
+.md ul, .md ol { margin: 0 0 0.5rem; padding-left: 1.4rem; }
+.md ul { list-style: disc; }
+.md ol { list-style: decimal; }
+.md code { background: var(--color-base-200); border: 1px solid var(--color-base-300); border-radius: 0.25rem; padding: 0 0.25rem; font-size: 12.5px; }
+.md pre.code { margin-bottom: 0.5rem; }
+.md table { border-collapse: collapse; margin: 0.25rem 0 0.5rem; font-size: 13px; }
+.md th, .md td { border: 1px solid var(--color-base-300); padding: 3px 8px; text-align: left; }
+.md a { color: var(--color-primary); text-decoration: underline; }
+.md strong { font-weight: 600; }
+
+/* highlight a card when clicked in the tree */
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 3px var(--color-primary); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* Flow tab → transcript highlight: a node click outlines the cards it traces and fades the rest (see app.js). */
+.flow-hit { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.flow-dim { opacity: .45; }

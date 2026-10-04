@@ -1,0 +1,45 @@
+# Dependencies and build output
+node_modules/
+frontend/dist/
+
+# Runtime output from live runs.
+#
+# The server writes every browser-started run here (a JSONL plus a .meta.json
+# sidecar). check-parse and check-hierarchy also scan this directory as extra
+# corpus when it exists; the committed fixtures are what the checks rely on.
+sessions/runs/
+*.stderr.log
+fixtures/*.stderr.log
+
+# Written by the check scripts
+scripts/.last-browser-run.txt
+
+# Files attached to a prompt from the composer. The server writes them into a
+# `.uploads/` directory inside whatever working directory the run uses, so this
+# matches at any depth rather than in one fixed place.
+.uploads/
+
+# Local screenshots and design references, referenced by no code
+shot-*.png
+reference/
+
+# Scratch working directories used as Claude Code targets while testing
+runs/*
+.ssrtmp/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Editor and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local scratch
+*.tmp
+*.bak
+.wip/

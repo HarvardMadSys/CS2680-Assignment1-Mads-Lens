@@ -1,0 +1,4122 @@
+/**
+ * The trajectory reads as a conversation with an execution flow threaded
+ * through it: prompts and prose carry the page, tool calls are single rows
+ * until asked, and everything else is quiet metadata.
+ *
+ * Weight is the main signal. A closed tool call is a small grey line; opening
+ * one is what earns full-strength text and a monospace block. Nothing shouts
+ * until it has been asked to.
+ */
+
+:root {
+  /* One theme, deliberately. The trajectory is read for a long time in one
+     sitting, so the page is a soft warm off-white rather than a bright sheet
+     of pure white, and the text a dark warm grey rather than black: the same
+     contrast, less glare, and no pair of palettes to keep in agreement. */
+  color-scheme: light;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+
+  /* Height of the sticky app header; the run header and outline hang off it. */
+  --head-h: 2.75rem;
+
+  --bg: #f7f7f4;
+  /* Cards sit on the page ground opaquely, so the dot grid reads in the gaps
+     between them and never behind a line of text. */
+  --card: #fdfdfc;
+  /* The grid itself: faint enough to be texture, not pattern. */
+  --dot: rgba(42, 42, 40, 0.07);
+  --dot-gap: 22px;
+  /* One radius for every card-sized thing on the page. */
+  --radius: 12px;
+  --surface: #f1f0ea;
+  --text: #2a2a28;
+  --muted: #6b6a64;
+  --faint-text: #83817a;
+  --line: rgba(42, 42, 40, 0.16);
+  --line-soft: rgba(42, 42, 40, 0.09);
+  --faint: rgba(42, 42, 40, 0.05);
+  --faintest: rgba(42, 42, 40, 0.025);
+
+  /* Status colours are warm-shifted to sit on the off-white without buzzing,
+     and each clears 4.5:1 against --bg, so the glyphs stay legible for a
+     reader who cannot separate them by hue. */
+  --ok: #3f7d53;
+  --err: #b03a2e;
+  --warn: #9a6b18;
+  --tool: #3b5fa8;
+  --agent: #7a5aa6;
+  --agent-line: rgba(122, 90, 166, 0.34);
+
+  /* The indent guides in the outline: visible as structure, never as content. */
+  --tree-line: rgba(42, 42, 40, 0.18);
+
+  /* One hue per *kind* of call, so the outline's colour answers "what happened
+     here" before a single tool name is read. Grouped the way ToolIcon groups
+     its glyphs -- by what the call does, not what it is called -- so MultiEdit
+     and Edit share a colour, as do Task and Agent. Every one of these clears
+     4.5:1 against --bg, because the pill's label is drawn in it. */
+  --pill-read: #3b5fa8;
+  --pill-write: #2f7360;
+  --pill-edit: #8a5a1f;
+  --pill-bash: #5c5a54;
+  --pill-grep: #2b6f8c;
+  --pill-glob: #8a4b7a;
+  --pill-task: #7a5aa6;
+  --pill-todo: #4a6b2f;
+  --pill-web: #a6492f;
+  --pill-generic: #6b6a64;
+
+  --btn-bg: #2a2a28;
+  --btn-fg: #fafaf8;
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Wide by default: the trajectory is the page, not a column in it. */
+.app {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 0 2rem 5rem;
+}
+
+@media (max-width: 899px) {
+  .app { padding: 0 1rem 4rem; }
+}
+
+h1 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 0.85rem;
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ---------- sticky status header ---------- */
+
+.app-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line-soft);
+  padding: 0.5rem 0 0.45rem;
+  margin-bottom: 1.6rem;
+}
+
+.status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  min-height: 1.4rem;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 0.08rem 0.55rem;
+  font-weight: 600;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+}
+
+.pill-idle { color: var(--faint-text); }
+.pill-running { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.pill-completed { color: var(--ok); }
+.pill-failed { color: var(--err); background: color-mix(in srgb, var(--err) 12%, transparent); }
+
+/* Height reserved for the bar below, held for as long as the run streams. The
+   header is sticky, so anything that changes its height moves every node on
+   the page; a bar that appeared and vanished with each of a hundred tool calls
+   made the trajectory jump under the reader on every one of them. */
+.active-tool-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 1.3rem;
+  margin-top: 0.35rem;
+}
+
+/* Cost, duration and turns for the run in progress, in the status bar. Small
+   and monospaced: a meter you glance at, never a headline. It sits next to the
+   status pill because it answers the same question -- how is this run going. */
+.run-meter {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--faint-text);
+}
+
+/* Tabular figures, so a ticking second and a growing cost change value without
+   changing width -- a meter that reflowed the header every second would be
+   its own kind of flicker. */
+.run-meter-cost,
+.run-meter-part {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The separator belongs to the text, not to the layout, so the meter reads as
+   one phrase when it is copied or read aloud rather than as three numbers
+   jammed together. */
+.run-meter-sep {
+  color: var(--faint-text);
+  font-weight: 400;
+}
+
+/* The cost carries the most weight of the three: it is the one figure a reader
+   is watching rather than reading. */
+.run-meter-cost {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* While the run streams the whole meter is provisional, and says so in the
+   same warm tone as everything else in flight. */
+.run-meter-live .run-meter-cost {
+  color: var(--warn);
+}
+
+/* The tool executing right now, always visible while a run streams. */
+.active-tool {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0 0.15rem 0.55rem;
+  border-left: 2px solid var(--warn);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.active-tool .tool-icon {
+  color: var(--warn);
+  opacity: 1;
+}
+
+.active-tool-name {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.meta {
+  color: var(--faint-text);
+  font-size: 0.75rem;
+  font-family: var(--mono);
+}
+
+.meta.warn { color: var(--warn); }
+
+.session-id,
+.run-path {
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spacer { flex: 1; min-width: 0.5rem; }
+
+.error {
+  color: var(--err);
+  white-space: pre-wrap;
+}
+
+/* ---------- composer ---------- */
+
+.composer {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  margin: 2.5rem 0 0;
+}
+
+@media (max-width: 800px) {
+  .composer { grid-template-columns: 1fr; }
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.panel {
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 1.1rem 1.15rem;
+  background: var(--faintest);
+}
+
+label {
+  display: block;
+  margin-bottom: 0.8rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint-text);
+  font-weight: 600;
+}
+
+label.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 1rem 0 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+label.checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+input,
+textarea,
+select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+}
+
+textarea {
+  line-height: 1.55;
+  resize: vertical;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--tool);
+  outline-offset: -1px;
+}
+
+input:disabled,
+textarea:disabled {
+  background: var(--faint);
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: var(--tool);
+  padding: 0.15rem 0;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+button.link:hover {
+  text-decoration: underline;
+}
+
+/* Offered only when the reader has scrolled away from a live stream. */
+.follow-latest {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 1.4rem;
+  z-index: 30;
+  font-size: 0.8rem;
+  box-shadow: 0 2px 10px rgba(42, 42, 40, 0.22);
+}
+
+/* ---------- conversation ---------- */
+
+.conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+/* No card: a run is a stretch of the conversation, marked by its header. */
+.run {
+  border: none;
+  padding: 0;
+}
+
+/* Stays visible while scrolling a long run, so which run you are in is never
+   ambiguous. Sits below the app header. */
+.run-head {
+  position: sticky;
+  top: var(--head-h);
+  z-index: 10;
+  background: var(--bg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0 0.4rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.run-number {
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.run-completed .run-number { color: var(--muted); }
+
+.expand-all {
+  background: none;
+  border: 1px solid var(--line-soft);
+  color: var(--faint-text);
+  font-size: 0.7rem;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+}
+
+.expand-all:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+
+/* The prompt is the loudest thing in a run: everything below answers it. */
+.run-prompt {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.1rem 0 1.2rem;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 1.4rem;
+}
+
+.run-prompt-tag {
+  flex: none;
+  width: 2.6rem;
+  padding-top: 0.32rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--faint-text);
+}
+
+.run-prompt-text {
+  min-width: 0;
+  max-width: 88ch;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 1.1rem;
+  line-height: 1.58;
+  font-weight: 500;
+}
+
+/* ---------- per-run metrics (compact, in the run header) ---------- */
+
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.9rem;
+}
+
+.metrics-none {
+  color: var(--faint-text);
+  font-size: 0.74rem;
+  font-style: italic;
+}
+
+.metric {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.metric-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint-text);
+}
+
+.metric-value {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.metric-missing {
+  font-weight: 400;
+  font-size: 0.74rem;
+  font-style: italic;
+  color: var(--faint-text);
+}
+
+/* ---------- run body: trajectory + outline ---------- */
+
+.run-body {
+  display: grid;
+  /* A constant, not a fraction: the outline is a table of contents, and a
+     table of contents that grew with the window would move the trajectory
+     every time the window did. */
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: 2.75rem;
+  align-items: start;
+}
+
+/* Narrow screens: the outline folds above the trajectory instead of
+   competing with it for width. */
+@media (max-width: 899px) {
+  .run-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* ---------- trajectory ---------- */
+
+.trajectory {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.node-tag {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--faint-text);
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+/* Assistant prose: no rail, no box. It is the conversation. */
+.node.text {
+  max-width: 92ch;
+}
+
+.node.text .markdown {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* A subagent task prompt is reference material, not narration -- and it is
+   already echoed as the spawning call's input. Keep it readable but quiet. */
+.node.user-text {
+  border-left: 2px solid var(--agent-line);
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  max-width: 90ch;
+}
+
+.node.user-text .markdown {
+  font-size: 0.82rem;
+  font-family: var(--mono);
+  color: var(--muted);
+}
+
+.node.user-text .markdown p {
+  line-height: 1.55;
+}
+
+/* Thinking is a marker, not content: stream-json carries no thinking text, so
+   there is nothing to expand. Kept as the quietest row in the flow -- present
+   as evidence the model paused to reason, never competing with what it did. */
+.node.thinking {
+  color: var(--faint-text);
+  font-size: 0.72rem;
+  font-style: italic;
+  opacity: 0.72;
+  padding-left: 0.5rem;
+  margin: 0.1rem 0;
+}
+
+.node.thinking:hover {
+  opacity: 1;
+}
+
+/* Runs of thinking markers collapse into one quiet line rather than a stack. */
+.node.thinking + .node.thinking {
+  margin-top: -0.05rem;
+}
+
+/* The final answer: an accent rail, not another card. */
+.node.result {
+  border-left: 2px solid var(--ok);
+  padding: 0.15rem 0 0.15rem 0.95rem;
+  margin-top: 0.6rem;
+  max-width: 92ch;
+}
+
+.node.result .node-tag { color: var(--ok); }
+
+.node.result .markdown {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.node.result.result-error { border-left-color: var(--err); }
+.node.result.result-error .node-tag { color: var(--err); }
+
+.node.notice {
+  font-size: 0.82rem;
+  font-family: var(--mono);
+  padding: 0.2rem 0 0.2rem 0.65rem;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+
+.notice-info { color: var(--faint-text); }
+.notice-warn { color: var(--warn); border-left-color: var(--warn); }
+.notice-error { color: var(--err); border-left-color: var(--err); }
+
+/* ---------- tool calls: one row until asked ---------- */
+
+/* An ordinary tool call stays a bare row. Only an agent call gets a box, and
+   that contrast is the point: the border says "everything inside here was done
+   by something else". */
+.node.tool {
+  border: none;
+  border-radius: 0;
+}
+
+/* A spawning call and the trajectory it owns, as one bordered card in the main
+   flow. The header is the call; the indented, connector-threaded body below it
+   is what the subagent did. Because the card wraps both, a subagent's work can
+   never be mistaken for the parent's next step -- which is exactly what a flat
+   sequence of rows could not say. */
+.node.tool.tool-spawner {
+  border: 1px solid var(--agent-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--agent) 4%, transparent);
+  padding: 0.3rem 0.5rem 0.45rem;
+}
+
+/* The card already carries the accent, so the row inside it does not repeat the
+   inset rail that a top-level open row uses. */
+.tool-spawner > .tool-head {
+  border-radius: 7px;
+}
+
+/* A subagent that spawned its own subagent nests one card inside another. The
+   inner one drops the wash so the nesting reads by edge rather than by an
+   ever-darkening stack. */
+.branch .node.tool.tool-spawner {
+  background: none;
+}
+
+/* Subagents that ran at the same time, as equal columns rather than a stack --
+   and the grid decides: side by side while two cards still fit, stacked the
+   moment they do not, with no breakpoint to keep in step with the sidebar. */
+.agent-row {
+  display: grid;
+  /* 30rem is the width at which a card still reads as a trajectory rather than
+     as a column of ellipses: measured, two cards at 391px clipped twelve of
+     their targets and outcomes, so the floor is set above that and the row
+     stacks instead. In the default layout that puts the switch at roughly a
+     1280px window.
+     
+     `min(30rem, 100%)` rather than a bare 30rem, because a bare minimum is a
+     promise the track keeps even when the container cannot: a row nested deep
+     enough to have less than 30rem would hold the floor anyway and overflow.
+     Belt and braces -- measured, it is not what fixed the overflow this row
+     actually had (see the nested-fan-out note below) -- but it costs nothing
+     and it is the honest way to write a floor. */
+  grid-template-columns: repeat(auto-fit, minmax(min(30rem, 100%), 1fr));
+  gap: 0.85rem;
+  align-items: start;
+}
+
+/* A grid item refuses to shrink below its own min-content unless told to, and
+   a card's min-content is whatever its widest unbroken tool target happens to
+   be. Every box on the path from the row down into the card is allowed to
+   shrink so that the widest one cannot decide the card's width.
+
+   Also belt and braces: isolating the factors showed this did not fix the
+   overflow the nested rows actually had either. It guards a different way in --
+   one very long unbroken target rather than a mis-set container. */
+.agent-row > *,
+.branch,
+.branch > *,
+.node.tool,
+.tool-head {
+  min-width: 0;
+}
+
+/* A nested fan-out is just another fan-out: the same grid, which pairs its
+   cards while the space allows and stacks them when it does not.
+   
+   It was briefly overridden to `display: flex; flex-direction: column` here,
+   which looked equivalent and was not: the row also carries `align-items:
+   start`, and on a column flex container that is the *cross* axis, so each card
+   was sized to max-content instead of to the column. A card two levels down
+   came out 749px wide inside a 508px space and hung 232px out through the side
+   of its parent.
+
+   Isolated against the other two guards below, this was the whole of it:
+   putting the override back reproduces the overflow, taking it away fixes it,
+   and neither of the others fixes it while it is there. The grid stretches its
+   items by default, so leaving it a grid is both simpler and correct. */
+
+/* Closed, a tool call is a small grey line -- one glance says which tool,
+   which target, how it went, and nothing is loud enough to interrupt the
+   prose around it. */
+.tool-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.24rem 0.55rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--faint-text);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Hover is the only weight a closed row gets for free: enough to show it is
+   clickable, not enough to make a long list of them busy. */
+.tool-head:hover {
+  background: var(--faint);
+  color: var(--muted);
+}
+
+.tool-head.static {
+  cursor: default;
+}
+
+/* Colour lives on the status glyph and the accents, not on a border box. */
+.tool-error > .tool-head { color: var(--err); }
+.tool-active > .tool-head {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  box-shadow: inset 2px 0 0 var(--warn);
+}
+/* Open is the state that earns weight: full-strength name, a solid ground and
+   a rail tying the row to the monospace evidence hanging below it. */
+.tool-open > .tool-head {
+  background: var(--faint);
+  color: var(--muted);
+  box-shadow: inset 2px 0 0 var(--tool);
+}
+
+.tool-open > .tool-head .tool-name {
+  font-weight: 700;
+}
+
+.tool-open > .tool-head .tool-target { color: var(--muted); }
+
+.tool-step {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--faint-text);
+  min-width: 1.8em;
+  text-align: right;
+  flex: none;
+}
+
+.glyph {
+  font-size: 0.78rem;
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+
+.glyph-running { color: var(--warn); }
+
+.glyph-completed { color: var(--ok); }
+.glyph-error { color: var(--err); }
+.glyph-incomplete { color: var(--faint-text); }
+
+/* The tool's kind, drawn once at row height so a scan down the column can be
+   done on shape alone. Inherits the row's colour, so it dims and brightens
+   with everything else in it. */
+/* Inside a badge the glyph is the badge's colour. It carried three
+   state-dependent overrides before -- spawner, error, open -- which now fight
+   the one thing the colour is for, so they are gone: outcome is the status
+   glyph's job and openness is the border's. */
+.tool-icon {
+  flex: none;
+  color: inherit;
+  opacity: 1;
+}
+
+/* Colour on a tool row now belongs to the badge, which owns what kind of call
+   it is. The name inherits it rather than carrying a colour of its own, so the
+   two can never drift apart. */
+.tool-name {
+  font-weight: 500;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: inherit;
+  flex: none;
+}
+
+/* The kind of call, as a chip: its glyph and its name on a tint of its own
+   hue. Same colour, same glyph, same grouping as the token the outline draws
+   for this call -- matching one to the other is meant to be a glance, not a
+   search. The tint is a wash rather than a fill so a column of rows still reads
+   as a list rather than as a row of buttons. */
+.tool-badge {
+  --badge: var(--pill-generic);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  flex: none;
+  padding: 0.06rem 0.44rem 0.06rem 0.36rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--badge) 11%, transparent);
+  color: var(--badge);
+}
+
+.tool-head:hover .tool-badge {
+  background: color-mix(in srgb, var(--badge) 19%, transparent);
+}
+
+/* Open is the one state that touches the badge, and it firms the edge rather
+   than changing the hue -- the hue is the call's identity, not its state. */
+.tool-open > .tool-head .tool-badge {
+  border-color: color-mix(in srgb, var(--badge) 45%, transparent);
+  background: color-mix(in srgb, var(--badge) 17%, transparent);
+}
+
+.badge-read { --badge: var(--pill-read); }
+.badge-write { --badge: var(--pill-write); }
+.badge-edit { --badge: var(--pill-edit); }
+.badge-bash { --badge: var(--pill-bash); }
+.badge-grep { --badge: var(--pill-grep); }
+.badge-glob { --badge: var(--pill-glob); }
+.badge-task { --badge: var(--pill-task); }
+.badge-todo { --badge: var(--pill-todo); }
+.badge-web { --badge: var(--pill-web); }
+.badge-generic { --badge: var(--pill-generic); }
+
+/* The short target: which file, which command, which pattern. Closed, this is
+   the whole of what the row says about the call's input -- the full monospace
+   block only appears once the row is clicked open. */
+.tool-target {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--faint-text);
+  flex: 0 1 auto;
+  min-width: 3ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The outcome, shown while the row is closed so folded detail is never silent. */
+.tool-peek {
+  font-family: var(--mono);
+  font-size: 0.73rem;
+  color: var(--faint-text);
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 34%;
+}
+
+.peek-warn { color: var(--warn); }
+.peek-error { color: var(--err); }
+.peek-running { color: var(--warn); }
+
+@media (max-width: 899px) {
+  .tool-peek { display: none; }
+}
+
+.tool-duration {
+  color: var(--faint-text);
+  font-size: 0.72rem;
+  font-family: var(--mono);
+  flex: none;
+}
+
+.chevron {
+  color: var(--faint-text);
+  font-family: var(--mono);
+  width: 1ch;
+  text-align: center;
+  flex: none;
+}
+
+/* Detail hangs off the row on a hairline, so an open row still reads as a row
+   with evidence attached rather than as a card. */
+.tool-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.35rem 0 0.7rem 1.9rem;
+  padding-left: 0.95rem;
+  border-left: 1px solid var(--line-soft);
+}
+
+/* ---------- output blocks ---------- */
+
+.block-label {
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint-text);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.block-body {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface);
+  border-radius: 6px;
+  /* Terminal and test output keeps its whitespace and line breaks. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+/* Input is the agent's intent; output is the world's answer. Different rails. */
+.block-input .block-body { box-shadow: inset 2px 0 0 var(--tool); }
+.block-error .block-body { box-shadow: inset 2px 0 0 var(--err); }
+.block-default .block-body { box-shadow: inset 2px 0 0 var(--line); }
+
+.block-folded .block-body {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Visible marker that a block is showing only part of its content. */
+.fold-marker {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--faint-text);
+  background: var(--surface);
+  border-top: 1px dashed var(--line);
+  border-radius: 0 0 6px 6px;
+  padding: 0.05rem 0.7rem;
+  letter-spacing: 0.2em;
+}
+
+.block-empty {
+  color: var(--faint-text);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.block-empty.warn { color: var(--warn); }
+.block-empty.running { color: var(--warn); font-style: normal; }
+
+/* ---------- markdown ---------- */
+
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+
+.markdown p { line-height: 1.7; margin: 0.65em 0; }
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-size: 1rem;
+  margin: 1.1em 0 0.4em;
+  color: var(--text);
+}
+
+.markdown ul,
+.markdown ol { margin: 0.6em 0; padding-left: 1.3em; }
+.markdown li { margin: 0.25em 0; line-height: 1.65; }
+
+.markdown pre {
+  background: var(--surface);
+  padding: 0.65rem 0.8rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.markdown code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+}
+
+.markdown :not(pre) > code {
+  background: var(--faint);
+  padding: 0.1rem 0.32rem;
+  border-radius: 4px;
+}
+
+.markdown table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid var(--line-soft);
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+
+/* ---------- subagent branches ---------- */
+
+.branch-badge {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--agent);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.02rem 0.4rem;
+  flex: none;
+}
+
+/* The subagent's own calls: indented inside the card and threaded onto one
+   vertical connector, so the card reads as a container with a flow in it rather
+   than as a box someone drew around a list. */
+.branch {
+  position: relative;
+  margin: 0.1rem 0 0.15rem 1.35rem;
+  padding-left: 0.95rem;
+  border-left: 1px solid var(--agent-line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* The elbow from the connector into the branch header. */
+.branch::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.85rem;
+  width: 0.65rem;
+  border-top: 1px solid var(--agent-line);
+}
+
+.branch-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: inherit;
+  padding: 0.2rem 0.35rem;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.branch-head:hover { background: var(--faint); }
+
+.branch-caret {
+  font-size: 0.6rem;
+  color: var(--agent);
+  flex: none;
+}
+
+.branch-title {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.63rem;
+  color: var(--agent);
+  font-weight: 700;
+  flex: none;
+}
+
+.branch-agent {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* What the subagent cost, how long it took, how many turns -- the run header's
+   metrics, one level in and one size down. Quiet by default: this is reference
+   material hanging off a header, not a second set of headline figures. */
+.branch-metrics {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--faint-text);
+  white-space: nowrap;
+}
+
+/* A subagent still running shows only elapsed time, and says so by colour --
+   the same warm tone every other in-flight thing on the page uses. */
+.branch-metrics-live {
+  color: var(--warn);
+}
+
+/* Tells the reader a collapsed branch has content to reveal. */
+.more-hint {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--agent);
+  border: 1px dashed currentColor;
+  border-radius: 999px;
+  padding: 0 0.38rem;
+}
+
+.branch-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.agent-summary {
+  font-size: 0.73rem;
+  font-family: var(--mono);
+  color: var(--faint-text);
+  padding: 0 0 0.15rem 1.45rem;
+}
+
+.orphan-note {
+  font-size: 0.72rem;
+  color: var(--warn);
+  font-family: var(--mono);
+  margin-bottom: 0.25rem;
+}
+
+/* ---------- outline (a table of contents, not a second trajectory) ---------- */
+
+/* The outline is a flowchart of the run drawn in one fixed, narrow column: a
+   stack of small text tokens threaded onto a single hairline, splitting into
+   parallel columns where subagents ran together and closing back up where they
+   rejoined. Nothing here is sized by its contents. Whatever the run did -- four
+   tool calls in a row, or two subagents fanned out four levels deep -- the
+   sidebar is the same width, so the dialogue beside it never shifts and the eye
+   keeps its place. Everything below therefore *shares* the column out instead
+   of claiming its natural size: names ellipsize, parallel branches split the
+   width between them, and the only axis allowed to overflow is the vertical
+   one.
+
+   The whole drawing rests on one trick: the tokens are opaque and the
+   connector is a full-height hairline behind them. The line is never measured
+   against the text it connects -- it is simply always there, and a token
+   covers the part of it that would have run through the token. */
+.outline {
+  /* A card, a shade off the page: the outline sits beside the trajectory, not
+     inside it, and a panel edge says so without a rule down the margin. */
+  --outline-bg: #f6f6f3;
+  /* Structure, felt rather than read: one neutral hairline for every
+     connector, so the only colour in the column belongs to the tokens. */
+  --outline-line: rgba(42, 42, 40, 0.3);
+  /* The air above each token -- and therefore the length of every connector
+     segment, since the line is only ever visible between tokens. */
+  --tok-gap: 0.4rem;
+  /* One arm of a fan-out's elbow: trunk in at the top, stem out at the
+     bottom. */
+  --arm: 0.4rem;
+
+  position: sticky;
+  top: calc(var(--head-h) + 2.4rem);
+  background: var(--outline-bg);
+  border: 1px solid var(--line-soft);
+  border-radius: 0.6rem;
+  padding: 0.7rem 0.6rem 0.9rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  max-height: calc(100vh - 8rem);
+  min-width: 0;
+  /* Deliberately not `auto`: a sideways scrollbar here would be the outline
+     admitting it did not fit, and fitting is the whole job. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* A label, not a heading. Lower case, italic, one notch off the page colour:
+   it names the column for a reader who has not met it before and then gets out
+   of the way. The fold caret and the count only matter once you have reached
+   for them, so they wait for the pointer -- and the caret stays put once the
+   outline is closed, because a closed outline has to look re-openable. */
+.outline-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--faint-text);
+  padding: 0 0 0.15rem 0.2rem;
+  font: inherit;
+  font-size: 0.68rem;
+  font-style: italic;
+  text-align: left;
+  cursor: pointer;
+}
+
+.outline-caret,
+.outline-head .meta {
+  font-style: normal;
+  font-size: 0.56rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.outline-head:hover .outline-caret,
+.outline-head:hover .meta,
+.outline-head:focus-visible .outline-caret,
+.outline-head:focus-visible .meta,
+.outline-closed .outline-caret {
+  opacity: 1;
+}
+
+.outline-list {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* The thread. One hairline down the centre of every level, drawn from the top
+   of the level to the bottom of it and then hidden wherever a token sits on
+   it. Because the gap above a token is the token's own padding rather than a
+   margin, every box in a level is flush with its neighbour and the line behind
+   them is continuous by construction -- there is no segment to position, no
+   elbow to keep in step with a row height, and a branch that grows children
+   lengthens its own line for free.
+
+   A fan-out is itself an `.outline-list` and is excluded: down its centre runs
+   the gap between two subagents, which is the one place in the column where a
+   connector would be claiming a relationship that does not exist. */
+.outline-list:not(.outline-fork)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px solid var(--outline-line);
+}
+
+/* Nothing precedes the first call of a run and nothing follows the last, so
+   the thread stops at them rather than reaching past for a neighbour that is
+   not there. A fan-out at either end is the awkward case -- its trunk and its
+   stem are drawn by this very line -- so the ends are pulled in to the bar
+   instead.
+
+   `.outline-list` is repeated here rather than left implied: the rule above it
+   carries a `:not()`, whose specificity counts, and a bare `.outline-root`
+   loses to it -- silently, and only on the runs with no fan-out at all. */
+.outline-list.outline-root::before {
+  top: var(--tok-gap);
+  bottom: 0;
+}
+
+.outline-list.outline-root:has(> .outline-fork-slot:first-child)::before {
+  top: var(--arm);
+}
+
+.outline-list.outline-root:has(> .outline-fork-slot:last-child)::before {
+  bottom: var(--arm);
+}
+
+/* A column, so that inside a fan-out the last thing in a branch can be told to
+   stretch and carry its line down to the bar that closes the fork. */
+.outline-branch {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+}
+
+/* The token's box: the gap above the token, plus the token centred in it. It
+   exists so a fan-out has something token-shaped to aim a drop line at --
+   anchoring the connector to the <li> would attach it to the whole subtree
+   underneath instead, and the line would start in the wrong place the moment a
+   branch grew children of its own. */
+.outline-node {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  padding-top: var(--tok-gap);
+  min-width: 0;
+}
+
+/* ---------- parallel branches ---------- */
+
+/* Subagents spawned together ran together, so they are drawn side by side under
+   a shared crossbar rather than stacked into a column that would imply an order
+   the run never had -- and joined again underneath, because the column does
+   carry on afterwards and a fan-out that only ever opened would leave the rest
+   of the run looking like it belonged to the last branch. The fan-out occupies
+   exactly one slot in the parent column, so everything above and below it is
+   laid out as before; a run with no parallel subagents matches no rule in this
+   section at all. */
+.outline-fork {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  /* The elbows, top and bottom. The wash is clipped to the content box, which
+     leaves those two strips transparent: the parent's own hairline shows
+     through them as the trunk going in and the stem coming out, so the fork
+     needs no connector of its own to reach the column it interrupts. Across
+     the branches, where that same hairline would otherwise run down the gap
+     between two subagents, the wash covers it. */
+  padding: var(--arm) 0;
+  background: var(--outline-bg);
+  background-clip: content-box;
+  min-width: 0;
+}
+
+/* The width rule that makes a fan-out free. `flex: 1 1 0` sizes each branch
+   from zero and hands it an equal share of what the sidebar actually has,
+   rather than from its content, which would ask for as much room as the widest
+   tool name in the subtree; `min-width: 0` lifts the automatic minimum that
+   would otherwise veto the shrink and force the column wider. Two branches or
+   six, one level deep or four, the fork is exactly as wide as its parent and
+   the overflow lands on the names, where an ellipsis absorbs it.
+
+   The horizontal spacing is padding, not gap, so the boxes touch and the
+   half-bars below join into one continuous crossbar. */
+.outline-list .outline-fork > .outline-branch {
+  flex: 1 1 0;
+  min-width: 0;
+  /* Sideways: the gutter between branches. Downwards: the same air that sits
+     above every token in the column, so the bar that closes the fan-out clears
+     the last token of the longest branch instead of resting on it. */
+  padding: 0 0.12rem var(--tok-gap);
+}
+
+/* Each branch draws its own half of the crossbar, so the bar spans exactly
+   first-branch-centre to last-branch-centre whether there are two branches or
+   six, with no branch count written into the CSS. Left to right: a branch's
+   `::before` covers its left half and its `::after` its right half, the halves
+   of adjacent branches meet at the boundary they share, and the bar ends where
+   it should because the first branch has no left half and the last no right
+   one.
+
+   Every property has to be restated, `left` included: the cascade resolves per
+   property, so a `left` left over from a neighbouring rule slides one half-bar
+   sideways and opens a gap in the middle of the bar. */
+.outline-list .outline-fork > .outline-branch::before,
+.outline-list .outline-fork > .outline-branch::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: auto;
+  width: 50%;
+  background: none;
+  border-top: 1px solid var(--outline-line);
+}
+
+.outline-list .outline-fork > .outline-branch::before {
+  left: auto;
+  right: 50%;
+}
+
+.outline-list .outline-fork > .outline-branch::after {
+  left: 50%;
+  right: auto;
+}
+
+/* Nothing sits outside the outermost two branches, so the bar stops at their
+   centres. The first branch's left half is folded onto its right half rather
+   than deleted: every branch keeps a half-bar of the same width, which is what
+   the layout check measures, and the doubled segment is invisible because it
+   lands exactly on the one already drawn there. */
+.outline-list .outline-fork > .outline-branch:first-child::before {
+  left: 50%;
+  right: auto;
+}
+
+.outline-list .outline-fork > .outline-branch:last-child::after {
+  content: none;
+}
+
+/* The drop from the crossbar into each branch's token, filling the gap the
+   token's own padding opens above it. */
+.outline-fork > .outline-branch > .outline-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: var(--tok-gap);
+  left: 50%;
+  border-left: 1px solid var(--outline-line);
+}
+
+/* The bar that closes the fan-out, from the first branch's centre to the
+   last's -- the crossbar read upside down. Branches are equal-width, so with
+   `n` of them the outermost centres sit half a branch in from each edge, and
+   `n` is the one number this rule cannot work out for itself: `--branches` is
+   set on the element by the component. */
+.outline-fork::after {
+  content: '';
+  position: absolute;
+  bottom: var(--arm);
+  left: calc(50% / var(--branches));
+  right: calc(50% / var(--branches));
+  border-top: 1px solid var(--outline-line);
+}
+
+/* ...and every branch has to reach it. Flex stretch already makes the branches
+   equally tall, so whatever a branch ends with -- a subtree, or just its own
+   token if the subagent did nothing -- is the thing told to fill the leftover
+   height, and its hairline comes down with it. */
+.outline-fork > .outline-branch > .outline-list:last-child,
+.outline-fork > .outline-branch > .outline-node:last-child {
+  flex: 1 1 auto;
+}
+
+/* Stretching only reaches the end of the branch's content; the bar is a gap
+   further down, on the far side of the padding that opened it. */
+.outline-fork > .outline-branch > .outline-list:last-child::before,
+.outline-fork > .outline-branch > .outline-node:last-child::after {
+  bottom: calc(-1 * var(--tok-gap));
+}
+
+/* A childless branch has no nested list to carry that line, so its token's box
+   draws one. Full height and behind the token, on the same principle as
+   everything else in the column: the token hides the part of it that would
+   have run through the token. */
+.outline-fork > .outline-branch > .outline-node:last-child::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px solid var(--outline-line);
+}
+
+/* ---------- the token ---------- */
+
+/* Each call is its name and nothing else, set as a small monospaced chip and
+   tinted by what kind of call it is, so the palette answers "what happened
+   here" before a single name is read. The chip is opaque because the connector
+   runs behind it, and rounded so a column of them reads as beads on a thread
+   rather than as a stack of boxes. Everything the token does not show -- the
+   target, the outcome, the subagent type, its number in the run -- is on the
+   tooltip and on the card it jumps to; an outline that repeated any of it
+   would be a second, worse copy of the trajectory. */
+.outline-item {
+  --pill: var(--pill-generic);
+  /* A row, so the glyph can sit beside the name and the name alone absorbs the
+     overflow. The chip is still the column's shock absorber: it takes the width
+     of its contents and gives that width back first. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  /* The column's shock absorber. The chip takes the width of its name and no
+     more, and gives that width back first: a name is what ellipsizes when a
+     fan-out divides the sidebar -- never the sidebar itself. */
+  max-width: 100%;
+  background: color-mix(in srgb, var(--pill) 13%, var(--outline-bg));
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--pill);
+  padding: 0.1rem 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* The same glyph the trajectory's badge uses, at outline scale. It is the
+   cheapest way to match a token to its card: shape first, then colour, and the
+   name only if the first two were not enough. */
+.outline-glyph {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  opacity: 0.95;
+}
+
+/* Inside a fan-out the column is split between branches, so the chip gives
+   back what it can: the glyph stays -- it is now the thing that identifies the
+   call -- and the padding tightens so more of the name survives beside it. */
+.outline-fork .outline-item {
+  padding-left: 0.28rem;
+  padding-right: 0.28rem;
+  gap: 0.14rem;
+}
+
+/* The name is what ellipsizes when a fan-out divides the sidebar -- never the
+   glyph, and never the column. */
+.outline-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outline-kind-read { --pill: var(--pill-read); }
+.outline-kind-write { --pill: var(--pill-write); }
+.outline-kind-edit { --pill: var(--pill-edit); }
+.outline-kind-bash { --pill: var(--pill-bash); }
+.outline-kind-grep { --pill: var(--pill-grep); }
+.outline-kind-glob { --pill: var(--pill-glob); }
+.outline-kind-task { --pill: var(--pill-task); }
+.outline-kind-todo { --pill: var(--pill-todo); }
+.outline-kind-web { --pill: var(--pill-web); }
+.outline-kind-generic { --pill: var(--pill-generic); }
+
+/* An agent-spawning call owns a branch, so its chip is the one filled a little
+   harder -- the one place the outline marks a subagent without words. */
+.outline-spawner {
+  background: color-mix(in srgb, var(--pill) 22%, var(--outline-bg));
+}
+
+/* How a call went never changes the chip's colour -- colour belongs to what
+   the call was -- so an outcome is drawn on the edge instead. Only the two
+   outcomes worth interrupting for get one; a call that simply finished looks
+   like a call, which is the common case and should be the quiet one. */
+.outline-error {
+  border-color: color-mix(in srgb, var(--err) 60%, transparent);
+}
+
+.outline-incomplete {
+  opacity: 0.55;
+}
+
+/* Hover and the current call are the only states that touch the fill, and both
+   stay inside the border the chip already has, so nothing in the column shifts
+   as the pointer runs down it. */
+.outline-item:hover {
+  background: color-mix(in srgb, var(--pill) 26%, var(--outline-bg));
+}
+
+.outline-active {
+  border-color: color-mix(in srgb, var(--warn) 65%, transparent);
+  background: color-mix(in srgb, var(--warn) 11%, var(--outline-bg));
+  color: var(--warn);
+}
+
+/* ---------- raw / debug (present, never prominent) ---------- */
+
+.raw,
+.event-log {
+  font-size: 0.74rem;
+  color: var(--faint-text);
+  margin-top: 0.45rem;
+}
+
+.event-log {
+  margin-top: 2rem;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 0.6rem;
+}
+
+.event-log summary,
+.raw summary {
+  cursor: pointer;
+}
+
+.raw pre,
+.event-log pre {
+  max-height: 24rem;
+  overflow: auto;
+  background: var(--surface);
+  padding: 0.6rem 0.7rem;
+  border-radius: 6px;
+  white-space: pre;
+  font-size: 0.74rem;
+}
+
+/* ---------- jump highlight ---------- */
+
+.jump-target {
+  outline: 2px solid var(--tool);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ---------- narrow screens ---------- */
+
+/* The outline folds above the trajectory instead of competing with it for
+   width. The run header wraps to several lines at this size, so pinning it as
+   well would bury the outline underneath it -- let it scroll away instead. */
+@media (max-width: 899px) {
+  .run-head {
+    position: static;
+  }
+
+  /* Still a card, still its own width: it is the page that has run out of
+     room, not the outline, and a column that reflowed here would be a
+     different drawing of the same run. */
+  .outline {
+    order: -1;
+    top: var(--head-h);
+    max-height: 45vh;
+    margin-bottom: 0.75rem;
+  }
+
+  .run-prompt-text { font-size: 1.02rem; }
+}
+
+/* ===========================================================================
+   Reference restyle
+   ---------------------------------------------------------------------------
+   Visual only. No selector here changes what is on the page or in what order --
+   every rule below is colour, spacing, border, radius or type. The structural
+   rules above still own the layout: the outline's thread and fan-out geometry,
+   the agent-card nesting, the parallel grid and the scroll behaviour are all
+   untouched.
+
+   Three things carry the look, taken from the reference:
+
+     1. A dot grid on the page ground, with every card opaque on top of it, so
+        the texture reads in the margins and never behind text.
+     2. A rounded-square tile around each tool glyph -- the icons themselves are
+        unchanged, only the box they sit in.
+     3. Monospaced, letter-spaced small caps for labels and machine values;
+        prose stays in the sans face, because narration is the one thing on the
+        page a reader reads rather than scans.
+   =========================================================================== */
+
+/* ---------- 1. the ground ---------- */
+
+/* The dots sit on the body so they show through the gaps between cards and
+   stop at the edge of anything opaque. Fixed attachment keeps the grid still
+   while a long trajectory scrolls over it -- a grid that scrolled with the
+   content would read as content. */
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1px, transparent 0);
+  background-size: var(--dot-gap) var(--dot-gap);
+  background-attachment: fixed;
+}
+
+/* ---------- 2. labels and machine values ---------- */
+
+/* Anything that names a thing rather than says something: small, monospaced,
+   letter-spaced, quiet. This is the reference's strongest single signal, and
+   the rule that keeps it from taking over is below -- prose is exempt. */
+.node-tag,
+.block-label,
+.branch-title,
+.run-prompt-tag,
+.metric-label,
+label,
+h2 {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+/* Narration is read, not scanned, so it keeps the sans face at reading size.
+   Stated explicitly because the rule above is broad and this is the boundary
+   the brief drew. */
+.markdown,
+.run-prompt-text {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ---------- 3. the tool glyph, in a tile ---------- */
+
+/* The reference puts every icon in a rounded square with its own tint. The
+   glyphs are untouched -- this styles the box around them, which is what the
+   brief asked for. `content-box` so the padding grows the tile rather than
+   squeezing the drawing inside it. */
+.tool-badge .tool-icon {
+  box-sizing: content-box;
+  width: 13px;
+  height: 13px;
+  padding: 3.5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--badge) 15%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--badge) 20%, transparent);
+}
+
+/* With the tile carrying the tint, the badge itself steps back to a label. */
+.tool-badge {
+  gap: 0.42rem;
+  padding: 0.1rem 0.5rem 0.1rem 0.16rem;
+  border-radius: 8px;
+  background: none;
+  border-color: transparent;
+}
+
+.tool-head:hover .tool-badge {
+  background: var(--faintest);
+}
+
+.tool-head:hover .tool-badge .tool-icon {
+  background: color-mix(in srgb, var(--badge) 24%, var(--card));
+  border-color: color-mix(in srgb, var(--badge) 34%, transparent);
+}
+
+.tool-open > .tool-head .tool-badge {
+  background: var(--faint);
+  border-color: transparent;
+}
+
+.tool-open > .tool-head .tool-badge .tool-icon {
+  background: color-mix(in srgb, var(--badge) 26%, var(--card));
+  border-color: color-mix(in srgb, var(--badge) 40%, transparent);
+}
+
+/* ---------- 4. the step number ---------- */
+
+/* A bordered cell, as in the reference. Tabular figures and a fixed width so a
+   column of them is a column and not a ragged edge. */
+.tool-step {
+  min-width: 1.9em;
+  padding: 0.05rem 0.2rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  background: var(--card);
+  color: var(--faint-text);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ---------- 5. cards ---------- */
+
+/* One radius, one border weight, no shadows: the reference separates things by
+   edge and by air, never by depth. */
+.panel,
+.outline {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: none;
+}
+
+.panel {
+  padding: 1.25rem 1.3rem;
+}
+
+.node.tool.tool-spawner {
+  border-radius: var(--radius);
+  background: var(--card);
+  border-color: var(--agent-line);
+}
+
+/* A nested card sits on its parent's ground rather than stacking another wash,
+   so depth reads as edges rather than as an ever-darker box. */
+.branch .node.tool.tool-spawner {
+  background: color-mix(in srgb, var(--agent) 3%, var(--card));
+}
+
+/* The header and the composer sit on the page ground, so the dots run behind
+   them; the sticky header still needs to be opaque or the trajectory scrolls
+   through it. */
+.app-head {
+  background: var(--bg);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.run-head {
+  background: var(--bg);
+}
+
+/* ---------- 6. pills and badges ---------- */
+
+/* Squared-off with a soft radius rather than fully round: the reference's
+   status chips are rectangles with generous corners. */
+.pill {
+  border-radius: 6px;
+  padding: 0.12rem 0.5rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.09em;
+  border: 1px solid currentColor;
+  background: var(--card);
+}
+
+.pill-running,
+.pill-failed {
+  background: var(--card);
+}
+
+.branch-badge,
+.more-hint {
+  border-radius: 5px;
+}
+
+/* ---------- 7. the outline ---------- */
+
+/* Colour, spacing and type only -- the thread, the fan-out crossbars and the
+   width lock are all still drawn by the rules above. */
+.outline {
+  padding: 0.85rem 0.7rem 1rem;
+}
+
+.outline-head {
+  font-family: var(--mono);
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.6rem;
+  color: var(--faint-text);
+  padding-bottom: 0.5rem;
+}
+
+.outline-item {
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--pill) 10%, var(--card));
+}
+
+.outline-item:hover {
+  background: color-mix(in srgb, var(--pill) 20%, var(--card));
+}
+
+.outline-spawner {
+  background: color-mix(in srgb, var(--pill) 17%, var(--card));
+}
+
+.outline-glyph {
+  opacity: 1;
+}
+
+/* ---------- 8. controls ---------- */
+
+input,
+textarea,
+select {
+  border-radius: 8px;
+  border-color: var(--line-soft);
+  background: var(--card);
+  padding: 0.55rem 0.65rem;
+}
+
+button {
+  border-radius: 8px;
+}
+
+.composer-actions button:first-child {
+  padding: 0.55rem 1.15rem;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- 9. air ---------- */
+
+/* The reference is mostly whitespace. This is the cheapest part of the look and
+   the easiest to lose, so it is stated rather than left to the old values. */
+.app {
+  padding: 0 2.5rem 6rem;
+}
+
+.conversation {
+  gap: 3.5rem;
+}
+
+.trajectory {
+  gap: 1rem;
+}
+
+.composer {
+  gap: 1.75rem;
+  margin-top: 3rem;
+}
+
+@media (max-width: 899px) {
+  .app {
+    padding: 0 1rem 4rem;
+  }
+}
+
+/* ===========================================================================
+   Contrast pass
+   ---------------------------------------------------------------------------
+   Colour and visual hierarchy only. Nothing below changes what is on the page,
+   what order it is in, or how anything is measured or laid out -- the outline's
+   thread and fan-out geometry, the agent-card nesting, the parallel grid, the
+   sticky headers and the scroll behaviour are all still owned by the rules
+   above. What changes is which of three grounds a thing sits on, how many
+   colours are in play, and how a status reads at a glance.
+
+   Five moves, in the order the eye meets them:
+
+     1. Three grounds instead of one. The page is a darker warm grey with the
+        dot grid on it; the conversation is the lightest surface on the page;
+        the sidebar cards and the app header sit between the two. Depth is
+        read off value, so a card no longer has to rely on a hairline to say
+        it is a card.
+     2. Status as a solid dot rather than a glyph. A filled circle is a shape
+        the eye resolves before it resolves a character, which is what a
+        status indicator is for; the tick and the cross were being read as
+        text and slowing the scan down.
+     3. The run's own figures as a bordered card in the sidebar, beside the
+        trajectory rather than threaded through the sticky header row.
+     4. A continuous rail down the trajectory, with a marker where each
+        top-level event joins it. The nested branch borders say "this happened
+        inside that"; the rail says "and these happened one after another",
+        which no border in the old drawing said.
+     5. One accent. The tool badges collapse to three greys, and purple is
+        kept for agents and for whatever is current -- so colour means
+        "look here" again rather than "this is a Grep".
+   =========================================================================== */
+
+:root {
+  /* The app header is a band now rather than a line of text, so the offset the
+     run header sticks at has to clear it with room to spare -- they are two
+     separate sticky elements and nothing else keeps them apart. */
+  --head-h: 3.1rem;
+
+  /* ---- surfaces ---- */
+
+  /* Warm white, not grey. Depth on this page is carried by borders and by
+     precise spacing, not by stacking ever-darker washes -- a tinted surface
+     behind every block is what made the old drawing read as beige. */
+  --bg: #f7f7f4;
+  --card: #ffffff;
+  /* A card inside a card. One step, barely perceptible on its own, which is
+     the point: the border says "nested", the value only confirms it. */
+  --nested: #fcfcfa;
+  /* The sidebar cards. Same white as the conversation; the page ground around
+     them is what sets them apart. */
+  --rail: #ffffff;
+  /* The one tinted surface left: code. A JSON payload is a quotation, and the
+     only block on the page that earns a ground of its own. */
+  --surface: #f4f4f0;
+
+  --dot: rgba(23, 23, 23, 0.07);
+
+  /* ---- type ---- */
+
+  /* Near-black for anything that carries meaning; #666 for what supports it;
+     the light grey is for genuinely tertiary metadata and nothing else. */
+  --text: #171717;
+  --muted: #666660;
+  --faint-text: #92928b;
+
+  /* ---- rules ---- */
+
+  /* Borders are the structure now, so they are drawn to be seen. The strong
+     one is for a card that owns other cards. */
+  --line: #d4d4ce;
+  --line-strong: #bebeb7;
+  --line-soft: #e4e3dd;
+  --faint: rgba(23, 23, 23, 0.045);
+  --faintest: rgba(23, 23, 23, 0.022);
+  --tree-line: #d8d8d2;
+  --tree-line-strong: #bebeb7;
+
+  /* ---- status ---- */
+
+  /* Shape first, colour second: every status is drawn as a distinct mark, so
+     these carry emphasis rather than the whole message. */
+  --ok: #3f7253;
+  --ok-bg: #eaf4ed;
+  --err: #a83b31;
+  --err-bg: #f8ecec;
+  --running: #5a48a0;
+  --running-bg: #f0ecfa;
+  --pending: #92928b;
+  /* Amber stays what it always was -- a warning -- now that "in flight" has a
+     colour of its own and the two are no longer competing. */
+  --warn: #8a5c0d;
+
+  /* ---- the accent ---- */
+
+  --accent: #624fa0;
+  --accent-bg: #f0ecfa;
+  --agent: var(--accent);
+  --agent-line: #cfc4e8;
+  --tool: var(--accent);
+
+  /* ---- tool kinds ---- */
+
+  /* Five muted families, each a ground and a foreground that clears 4.5:1 on
+     it. Grouped the way ToolIcon groups its glyphs -- by what the call does --
+     so MultiEdit reads as an edit and BashOutput as a shell. Lavender is
+     reserved for the one kind that owns a whole branch of the run. */
+  --pill-task: #624fa0;
+  --pill-task-bg: #f0ecfa;
+  --pill-read: #426a91;
+  --pill-read-bg: #edf3fa;
+  --pill-bash: #333330;
+  --pill-bash-bg: #eeeeeb;
+  --pill-edit: #3f7253;
+  --pill-edit-bg: #eaf4ed;
+  --pill-write: #3f7253;
+  --pill-write-bg: #eaf4ed;
+  --pill-grep: #925354;
+  --pill-grep-bg: #f8ecec;
+  --pill-glob: #925354;
+  --pill-glob-bg: #f8ecec;
+  --pill-todo: #426a91;
+  --pill-todo-bg: #edf3fa;
+  --pill-web: #426a91;
+  --pill-web-bg: #edf3fa;
+  --pill-generic: #333330;
+  --pill-generic-bg: #efefec;
+
+  --btn-bg: #171717;
+  --btn-fg: #fbfbf9;
+}
+
+/* ---------- 1. the three grounds ---------- */
+
+/* The app header is the darkest surface with text on it, and it bleeds past
+   the conversation's edges so it reads as a band across the page rather than
+   as one more card in the stack. */
+.app-head {
+  background: var(--rail);
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 1rem 0.55rem;
+  margin: 0 -1rem 1.6rem;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* The conversation is the document: the lightest surface, edged and inset, so
+   the dot grid stops at its border instead of running under the prose. */
+.conversation {
+  background: var(--card);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.6rem 2rem;
+}
+
+/* The run header sticks to the top of the conversation, so it has to be the
+   conversation's own ground -- anything else and the trajectory shows through
+   it as it scrolls past. */
+.run-head {
+  background: var(--card);
+}
+
+@media (max-width: 899px) {
+  .conversation {
+    padding: 1rem 0.9rem 1.4rem;
+  }
+
+  .app-head {
+    margin-inline: -0.5rem;
+    padding-inline: 0.5rem;
+  }
+}
+
+/* ---------- 2. status as a dot ---------- */
+
+/* The glyph element keeps its character -- the markup is unchanged -- and the
+   dot is drawn in its place: a solid circle at a size the eye resolves as a
+   shape rather than reading as a letter. `font-size: 0` is what retires the
+   tick and the cross without touching the component that writes them. */
+.glyph {
+  display: inline-block;
+  box-sizing: border-box;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 0.1rem;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: var(--faint-text);
+  font-size: 0;
+  line-height: 0;
+  overflow: hidden;
+}
+
+.glyph-completed {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.glyph-error {
+  background: var(--err);
+  border-color: var(--err);
+}
+
+/* In flight, and the only dot with a halo: the one row on the page whose state
+   is still changing is worth a ring the others do not get. */
+.glyph-running {
+  background: var(--warn);
+  border-color: var(--warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent);
+}
+
+/* No result ever arrived, so the dot is a hole rather than a mark. */
+.glyph-incomplete {
+  background: transparent;
+  border-color: var(--line);
+}
+
+/* The active-tool bar draws the same dot, one size up, because there it is the
+   only status on the row. */
+.active-tool .glyph {
+  width: 8px;
+  height: 8px;
+}
+
+/* ---------- 3. the sidebar column ---------- */
+
+/* The outline and the run's figures travel together, and the column as a whole
+   is what stays put while a long run scrolls past it -- so the sticky is
+   lifted from the outline onto the column that now holds it. */
+.run-side {
+  position: sticky;
+  top: calc(var(--head-h) + 2.4rem);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.outline {
+  --outline-bg: var(--rail);
+  --outline-line: rgba(34, 34, 31, 0.34);
+
+  position: static;
+  background: var(--outline-bg);
+  border-color: var(--line-soft);
+  max-height: calc(100vh - 18rem);
+}
+
+/* The run's own facts: a card of label/value rows, set in the same monospaced
+   small caps the rest of the page uses for machine values. */
+.run-meta {
+  background: var(--rail);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 0.85rem 0.85rem 0.9rem;
+  min-width: 0;
+}
+
+.run-meta-head {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--faint-text);
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.15rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* Label left, value right, one row each. The metrics block is folded into the
+   same rhythm rather than keeping the header's inline layout. */
+.run-meta-row,
+.run-meta .metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.28rem 0;
+}
+
+.run-meta .metrics {
+  display: block;
+}
+
+.run-meta-key,
+.run-meta .metric-label {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-weight: 600;
+  color: var(--faint-text);
+}
+
+.run-meta-val,
+.run-meta .metric-value {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-meta .metric-missing {
+  font-weight: 400;
+  color: var(--faint-text);
+}
+
+.run-meta .metrics-none {
+  padding-top: 0.4rem;
+  font-size: 0.7rem;
+}
+
+/* ---------- 4. the trajectory rail ---------- */
+
+/* Nesting was the only relationship the trajectory drew: a branch border says
+   "this happened inside that". Sequence had nothing -- top-level events were
+   simply stacked, and a stack reads as a list rather than as a timeline. The
+   rail is that missing line, with a marker where each top-level event joins
+   it. Nested rows keep their own branch borders and are deliberately left off
+   the rail: the rail is the run's spine, not a second indent guide. */
+.trajectory {
+  position: relative;
+  padding-left: 1.6rem;
+}
+
+.trajectory::before {
+  content: '';
+  position: absolute;
+  left: 0.31rem;
+  top: 0.7rem;
+  bottom: 0.7rem;
+  border-left: 1px solid var(--tree-line);
+}
+
+/* Absolutely positioned, so on the parallel row -- which is a grid -- the
+   marker is out of flow and never becomes a cell in it. */
+.trajectory > * {
+  position: relative;
+}
+
+.trajectory > *::before {
+  content: '';
+  position: absolute;
+  left: -1.42rem;
+  top: 0.55rem;
+  width: 7px;
+  height: 7px;
+  box-sizing: border-box;
+  border: 1px solid var(--tree-line);
+  border-radius: 50%;
+  background: var(--card);
+}
+
+/* An event that owns a subagent is where the run actually forked, so its
+   marker is the filled one. */
+.trajectory > .node.tool.tool-spawner::before,
+.trajectory > .agent-row::before {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The last thing a run says. */
+.trajectory > .node.result::before {
+  background: var(--ok);
+  border-color: var(--ok);
+  top: 0.75rem;
+}
+
+.trajectory > .node.result.result-error::before {
+  background: var(--err);
+  border-color: var(--err);
+}
+
+/* Prose sits a line lower than a tool row does. */
+.trajectory > .node.text::before {
+  top: 0.62rem;
+}
+
+.trajectory > .node.thinking::before {
+  background: var(--rail);
+  top: 0.35rem;
+}
+
+@media (max-width: 899px) {
+  .trajectory {
+    padding-left: 1.2rem;
+  }
+
+  .trajectory::before { left: 0.19rem; }
+  .trajectory > *::before { left: -1.05rem; }
+}
+
+/* ---------- 5. one accent ---------- */
+
+/* Current is the state the accent exists for. It was warm amber, which is also
+   what "in flight" is drawn in, so the two were competing; the dot keeps the
+   amber and the highlight takes the accent. */
+.tool-active > .tool-head {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.outline-active {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--outline-bg));
+  color: var(--accent);
+}
+
+/* With most kinds now grey, an open row's rail would be a grey line on a grey
+   wash. The edge does the work instead. */
+.tool-open > .tool-head {
+  background: var(--faint);
+  box-shadow: inset 2px 0 0 var(--line);
+}
+
+/* A spawning card is the one card in the flow with a hue, and its wash is what
+   separates a subagent's work from the parent's next step. */
+.node.tool.tool-spawner {
+  background: color-mix(in srgb, var(--accent) 3.5%, var(--card));
+  border-color: var(--agent-line);
+}
+
+.branch .node.tool.tool-spawner {
+  background: color-mix(in srgb, var(--accent) 6%, var(--card));
+}
+
+/* Status pills: the completed one is the common case and stays quiet, the two
+   that want attention get a wash. */
+.pill {
+  border-color: color-mix(in srgb, currentColor 55%, transparent);
+  background: var(--card);
+}
+
+.pill-completed {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 9%, var(--card));
+}
+
+.pill-running {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 13%, var(--card));
+}
+
+.pill-failed {
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 13%, var(--card));
+}
+
+/* On the sidebar's ground rather than the conversation's. */
+.run-meta .pill {
+  background: var(--card);
+}
+
+/* The tool tile: with the palette down to three greys the tint no longer
+   carries the kind on its own, so the tile firms up its edge instead. */
+.tool-badge .tool-icon {
+  background: color-mix(in srgb, var(--badge) 12%, var(--card));
+  border-color: color-mix(in srgb, var(--badge) 28%, transparent);
+}
+
+.tool-name {
+  color: var(--badge, inherit);
+}
+
+/* The row's own text can afford to be darker now that nothing around it is
+   competing for attention with a hue. */
+.tool-head {
+  color: var(--muted);
+}
+
+.tool-target,
+.tool-peek,
+.tool-duration {
+  color: var(--faint-text);
+}
+
+/* ---------- surfaces that follow from the above ---------- */
+
+.panel {
+  background: var(--card);
+  border-color: var(--line-soft);
+}
+
+input,
+textarea,
+select {
+  background: var(--card);
+  border-color: var(--line);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background: var(--faint);
+  color: var(--muted);
+}
+
+.block-body,
+.markdown pre,
+.raw pre,
+.event-log pre {
+  background: var(--surface);
+}
+
+.fold-marker {
+  background: var(--surface);
+}
+
+/* The step number is a cell on the card's ground, not on the page's. */
+.tool-step {
+  background: var(--card);
+  border-color: var(--line-soft);
+  color: var(--muted);
+}
+
+/* The sidebar column folds above the trajectory at narrow widths, so it stops
+   being sticky -- a column pinned to the top of a single-column page would sit
+   on the trajectory it is a table of contents for. */
+@media (max-width: 899px) {
+  .run-side {
+    position: static;
+    order: -1;
+    gap: 0.6rem;
+  }
+
+  .outline {
+    max-height: 45vh;
+    margin-bottom: 0;
+  }
+}
+
+/* ===========================================================================
+   Refinement pass
+   ---------------------------------------------------------------------------
+   Same architecture, drawn properly. Nothing below changes what is on the page
+   or in what order: the nested agent cards, the parallel grid, the outline's
+   thread and fan-out geometry, the sticky headers, the scroll behaviour and
+   every collapse/expand control are still owned by the rules above this
+   comment. What changes is weight, colour, size and motion.
+
+   The direction is a premium developer tool: white canvas, black type, thin
+   precise borders, five restrained semantic families, and motion used only
+   where it reports something happening. Depth is carried by borders and by
+   spacing rather than by stacking tinted washes -- the previous drawing put a
+   ground behind nearly every block, which is what made it read as beige.
+
+   Seven moves:
+
+     1. Surfaces go white and borders do the separating.
+     2. A tool's kind becomes the loudest thing on its row: a 24px tile and an
+        uppercase label at reading weight, not a metadata pill.
+     3. Outcome becomes a drawn mark -- tick, cross, ring, arc -- at the end of
+        the row, where the eye leaves it.
+     4. The execution rail encodes state per node, and carries a current while
+        the run is live.
+     5. The final result stops looking like one more tool card.
+     6. Prompt and output lose their boxes; only code keeps a ground.
+     7. The outline picks up the same icons, the same families and the same
+        marks, so the sidebar and the trajectory are one drawing.
+   =========================================================================== */
+
+/* ---------- 1. surfaces ---------- */
+
+/* The header is the page's white band, not a grey one: the rule under it and
+   the ground below do the separating. */
+.app-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.conversation {
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.run-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.outline,
+.run-meta,
+.panel {
+  background: var(--rail);
+  border: 1px solid var(--line);
+}
+
+/* A card that owns other cards. The border is what says so -- the wash is
+   gone, and with it the ever-darkening stack the old nesting produced. */
+.node.tool.tool-spawner {
+  background: var(--card);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 0.4rem 0.55rem 0.55rem;
+}
+
+/* One step in, and only one step: the border already said "nested", so the
+   value only has to confirm it. Every level below this reuses the same pair,
+   because a fourth and fifth step would be invisible anyway. */
+.branch .node.tool.tool-spawner {
+  background: var(--nested);
+  border-color: var(--line);
+}
+
+/* Two branches that ran at once, with enough air between them to read as two
+   paths rather than as one wrapped card. */
+.agent-row {
+  gap: 1.1rem;
+}
+
+/* ---------- 2. the tool's kind, at reading size ---------- */
+
+/* This is the single most-scanned thing in a trajectory, and it was set as a
+   metadata pill. It becomes a tile and a word: a 24px rounded square carrying
+   the glyph on its family's ground, then the tool's name in caps at reading
+   weight. Uppercase is done in CSS, so the name in the DOM is still `Read`. */
+.tool-badge {
+  --badge: var(--pill-generic);
+  --badge-bg: var(--pill-generic-bg);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--badge);
+}
+
+.tool-badge .tool-icon {
+  box-sizing: content-box;
+  width: 15px;
+  height: 15px;
+  padding: 4px;
+  border-radius: 7px;
+  background: var(--badge-bg);
+  border: 1px solid color-mix(in srgb, var(--badge) 16%, transparent);
+  color: var(--badge);
+}
+
+.tool-name {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  font-weight: 650;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: var(--badge);
+  flex: none;
+}
+
+/* Hover and open touch the tile, never the family: the hue is the call's
+   identity, and identity does not change when you point at it. */
+.tool-head:hover .tool-badge,
+.tool-open > .tool-head .tool-badge {
+  background: none;
+}
+
+.tool-head:hover .tool-badge .tool-icon {
+  border-color: color-mix(in srgb, var(--badge) 34%, transparent);
+}
+
+.tool-open > .tool-head .tool-badge .tool-icon {
+  border-color: color-mix(in srgb, var(--badge) 45%, transparent);
+}
+
+.tool-open > .tool-head .tool-name {
+  font-weight: 650;
+}
+
+.badge-task { --badge: var(--pill-task); --badge-bg: var(--pill-task-bg); }
+.badge-read { --badge: var(--pill-read); --badge-bg: var(--pill-read-bg); }
+.badge-bash { --badge: var(--pill-bash); --badge-bg: var(--pill-bash-bg); }
+.badge-edit { --badge: var(--pill-edit); --badge-bg: var(--pill-edit-bg); }
+.badge-write { --badge: var(--pill-write); --badge-bg: var(--pill-write-bg); }
+.badge-grep { --badge: var(--pill-grep); --badge-bg: var(--pill-grep-bg); }
+.badge-glob { --badge: var(--pill-glob); --badge-bg: var(--pill-glob-bg); }
+.badge-todo { --badge: var(--pill-todo); --badge-bg: var(--pill-todo-bg); }
+.badge-web { --badge: var(--pill-web); --badge-bg: var(--pill-web-bg); }
+.badge-generic { --badge: var(--pill-generic); --badge-bg: var(--pill-generic-bg); }
+
+/* The row around it: more air, so a 24px tile has somewhere to sit. */
+.tool-head {
+  gap: 0.6rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+/* Which file, which command, which pattern -- supporting information, and now
+   set as such rather than as something too light to read. */
+.tool-target {
+  font-size: 0.79rem;
+  color: var(--muted);
+}
+
+.tool-duration {
+  font-size: 0.72rem;
+  color: var(--faint-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-peek {
+  color: var(--faint-text);
+}
+
+.chevron {
+  color: var(--line-strong);
+  font-size: 0.9rem;
+}
+
+.tool-head:hover .chevron {
+  color: var(--muted);
+}
+
+.tool-step {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+/* ---------- 3. outcome, as a mark ---------- */
+
+/* The contrast pass drew status as a coloured dot, which said "something
+   happened here" but not what. The mark says which: a tick, a cross, a ring,
+   a turning arc. The dot's geometry is unwound here rather than edited above,
+   so the two treatments stay legible as two decisions. */
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+  font-size: 0;
+  line-height: 0;
+  color: var(--pending);
+}
+
+.status-icon {
+  display: block;
+}
+
+.glyph-completed { color: var(--ok); }
+.glyph-error { color: var(--err); }
+.glyph-incomplete { color: var(--pending); }
+.glyph-running { color: var(--running); }
+
+/* An arc with a head and a tail only reads as turning once it turns. */
+.glyph-running .status-icon {
+  animation: mark-spin 1.15s linear infinite;
+}
+
+@keyframes mark-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* The row that is executing right now. Lavender rather than amber: amber is
+   what a warning is drawn in, and the two were competing for the same glance. */
+.tool-active > .tool-head {
+  background: var(--running-bg);
+  box-shadow: inset 2px 0 0 var(--running);
+}
+
+.tool-error > .tool-head .tool-target {
+  color: var(--err);
+}
+
+.peek-running { color: var(--running); }
+
+/* Status words, wherever they appear: a mark, then the word, then the colour.
+   The mark is pseudo-content, so the element's text is still just the status
+   and everything reading it keeps working. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  border-radius: 6px;
+  padding: 0.14rem 0.5rem 0.14rem 0.42rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.pill::before {
+  content: '';
+  flex: none;
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.pill-completed { color: var(--ok); background: var(--ok-bg); }
+.pill-completed::before { content: '\2713'; }
+
+.pill-failed { color: var(--err); background: var(--err-bg); }
+.pill-failed::before { content: '\2715'; }
+
+.pill-idle { color: var(--pending); background: var(--faint); }
+.pill-idle::before { content: '\25cb'; }
+
+.pill-running {
+  color: var(--running);
+  background: var(--running-bg);
+}
+
+.pill-running::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.72); }
+}
+
+/* ---------- 4. the execution rail ---------- */
+
+/* The rail is the run's spine: one line, a marker where each top-level event
+   joins it, and -- while the run is live -- a current running down it. */
+.trajectory::before {
+  border-left-color: var(--tree-line);
+}
+
+.run-running .trajectory::before,
+.run-stopping .trajectory::before {
+  border-left-color: var(--tree-line-strong);
+}
+
+/* Node states. Every one of these is a different shape as well as a different
+   colour, so the column can be read without separating hue. */
+.trajectory > *::before {
+  width: 9px;
+  height: 9px;
+  top: 0.5rem;
+  left: -1.5rem;
+  border: 1.5px solid var(--tree-line-strong);
+  background: var(--card);
+}
+
+.trajectory > .node.tool.tool-completed::before {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.trajectory > .node.tool.tool-error::before {
+  background: var(--err);
+  border-color: var(--err);
+}
+
+.trajectory > .node.tool.tool-incomplete::before {
+  background: var(--card);
+  border-color: var(--pending);
+}
+
+.trajectory > .node.tool.tool-running::before {
+  background: var(--card);
+  border-color: var(--running);
+  box-shadow: inset 0 0 0 2px var(--running-bg);
+}
+
+/* Narration and thinking are not outcomes, so they get a neutral node rather
+   than a tick that would be claiming something the frame never said. */
+.trajectory > .node.text::before,
+.trajectory > .node.user-text::before {
+  width: 7px;
+  height: 7px;
+  top: 0.62rem;
+  left: -1.44rem;
+  background: var(--muted);
+  border-color: var(--muted);
+}
+
+.trajectory > .node.thinking::before {
+  width: 5px;
+  height: 5px;
+  top: 0.4rem;
+  left: -1.33rem;
+  background: var(--card);
+  border-color: var(--line-strong);
+}
+
+/* A fan-out is where the run split in two. Restated after the status rules so
+   it wins: the marker is about the shape of the run, not about how the row
+   came out. */
+.trajectory > .agent-row::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  top: 0.62rem;
+}
+
+.trajectory > .node.result::before {
+  width: 11px;
+  height: 11px;
+  top: 0.72rem;
+  left: -1.56rem;
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.trajectory > .node.result.result-error::before {
+  background: var(--err);
+  border-color: var(--err);
+}
+
+/* The current. A short luminous segment travelling top to bottom, clipped to
+   the width of the rail and drawn only while the run is actually streaming --
+   the moment it finishes or fails the line goes static, because a pipeline
+   with nothing in it should not look like one with something in it.
+
+   The height is a percentage of the rail so the pulse stays proportionate on a
+   four-event run, and bounded so it does not become a wash on a hundred-event
+   one. */
+.run-running .trajectory::after,
+.run-stopping .trajectory::after {
+  content: '';
+  position: absolute;
+  left: calc(0.31rem - 1px);
+  width: 3px;
+  height: 16%;
+  min-height: 48px;
+  max-height: 130px;
+  border-radius: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--running) 45%, transparent) 30%,
+    var(--running) 55%,
+    color-mix(in srgb, var(--running) 45%, transparent) 75%,
+    transparent
+  );
+  box-shadow: 0 0 7px color-mix(in srgb, var(--running) 40%, transparent);
+  animation: rail-current 2.2s linear infinite;
+}
+
+@keyframes rail-current {
+  0% { top: -16%; opacity: 0; }
+  12% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* The newest top-level event is the one being worked on, so its node breathes
+   while the rest of the column stays still. */
+.run-running .trajectory > *:last-child::before,
+.run-stopping .trajectory > *:last-child::before {
+  animation: node-halo 1.8s ease-out infinite;
+}
+
+@keyframes node-halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--running) 40%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--running) 0%, transparent); }
+}
+
+/* Motion here reports runtime activity, so switching it off has to leave the
+   report behind: the current becomes a static lit rail, and the spinning arc
+   and pulsing dots simply stop. */
+@media (prefers-reduced-motion: reduce) {
+  .run-running .trajectory::after,
+  .run-stopping .trajectory::after {
+    top: 0;
+    bottom: 0;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    width: 2px;
+    background: var(--running);
+    opacity: 0.5;
+    box-shadow: none;
+    animation: none;
+  }
+
+  .glyph-running .status-icon,
+  .pill-running::before,
+  .run-running .trajectory > *:last-child::before,
+  .run-stopping .trajectory > *:last-child::before,
+  .outline-running::after,
+  .active-tool .glyph .status-icon {
+    animation: none;
+  }
+}
+
+/* ---------- 5. the final result ---------- */
+
+/* Not another tool card: a semantic rail, a faint ground of the same family, a
+   mark at heading size and the outcome as its own word. */
+.node.result {
+  border-left: 2px solid var(--ok);
+  border-radius: 0 9px 9px 0;
+  background: color-mix(in srgb, var(--ok-bg) 55%, var(--card));
+  padding: 0.7rem 1.1rem 0.8rem 1rem;
+  margin-top: 0.8rem;
+}
+
+.node.result .node-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--ok);
+}
+
+.result-mark {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  color: var(--ok);
+}
+
+.result-subtype {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 0.08rem 0.4rem;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ok) 13%, transparent);
+}
+
+.node.result.result-error {
+  border-left-color: var(--err);
+  background: color-mix(in srgb, var(--err-bg) 55%, var(--card));
+}
+
+.node.result.result-error .node-tag,
+.node.result.result-error .result-mark {
+  color: var(--err);
+}
+
+.node.result.result-error .result-subtype {
+  background: color-mix(in srgb, var(--err) 13%, transparent);
+}
+
+.node.result .markdown {
+  font-size: 1.02rem;
+  color: var(--text);
+}
+
+/* ---------- 6. prompt, input, output ---------- */
+
+/* Three sections on one ground read as one heavy block. Only code keeps a
+   surface; prose hangs off a hairline instead, which is enough to say where
+   it begins and costs the page nothing. */
+.block-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.13em;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.block-input .block-body,
+.block-default .block-body {
+  background: none;
+  box-shadow: none;
+  border-left: 2px solid var(--line);
+  border-radius: 0;
+  padding: 0.1rem 0 0.1rem 0.75rem;
+  color: var(--text);
+}
+
+/* The one block that keeps a ground: a JSON payload is a quotation, and a
+   quotation earns a surface. */
+.block-json .block-body {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  box-shadow: none;
+  padding: 0.55rem 0.7rem;
+  color: var(--text);
+}
+
+.block-error .block-body {
+  background: color-mix(in srgb, var(--err-bg) 60%, var(--card));
+  box-shadow: inset 2px 0 0 var(--err);
+  color: var(--text);
+}
+
+.block-json.block-folded .block-body,
+.block-error.block-folded .block-body {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.block-input.block-folded .block-body,
+.block-default.block-folded .block-body {
+  border-radius: 0;
+}
+
+.fold-marker {
+  background: none;
+  border-top: none;
+  color: var(--faint-text);
+  padding-left: 0.75rem;
+}
+
+.block-json .fold-marker,
+.block-error .fold-marker {
+  background: var(--surface);
+  border-top: 1px dashed var(--line);
+  padding-left: 0.7rem;
+}
+
+.tool-body {
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.8rem 2.05rem;
+  padding-left: 1rem;
+  border-left: 1px solid var(--line-soft);
+}
+
+button.link {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- 7. the outline ---------- */
+
+/* The tree is unchanged -- same geometry, same forks, same crossbars. What
+   changes is that it now speaks the trajectory's language: the same five
+   families, the same uppercase labels, and a mark for how each call came out,
+   so a glance at the sidebar answers the same question as a glance at the
+   flow. */
+.outline {
+  --outline-line: #c9c9c2;
+  padding: 0.9rem 0.7rem 1.05rem;
+}
+
+.outline-head {
+  font-size: 0.62rem;
+  letter-spacing: 0.13em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.outline-item {
+  --pill: var(--pill-generic);
+  --pill-bg: var(--pill-generic-bg);
+  gap: 0.24rem;
+  border-radius: 6px;
+  background: var(--pill-bg);
+  color: var(--pill);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+/* Monospace, so caps cost exactly the width lower case did and the column
+   cannot widen. */
+.outline-name {
+  text-transform: uppercase;
+}
+
+.outline-glyph {
+  width: 12px;
+  height: 12px;
+}
+
+.outline-kind-task { --pill: var(--pill-task); --pill-bg: var(--pill-task-bg); }
+.outline-kind-read { --pill: var(--pill-read); --pill-bg: var(--pill-read-bg); }
+.outline-kind-bash { --pill: var(--pill-bash); --pill-bg: var(--pill-bash-bg); }
+.outline-kind-edit { --pill: var(--pill-edit); --pill-bg: var(--pill-edit-bg); }
+.outline-kind-write { --pill: var(--pill-write); --pill-bg: var(--pill-write-bg); }
+.outline-kind-grep { --pill: var(--pill-grep); --pill-bg: var(--pill-grep-bg); }
+.outline-kind-glob { --pill: var(--pill-glob); --pill-bg: var(--pill-glob-bg); }
+.outline-kind-todo { --pill: var(--pill-todo); --pill-bg: var(--pill-todo-bg); }
+.outline-kind-web { --pill: var(--pill-web); --pill-bg: var(--pill-web-bg); }
+.outline-kind-generic { --pill: var(--pill-generic); --pill-bg: var(--pill-generic-bg); }
+
+/* The outcome, at the one size the column can spare: a 5px mark after the
+   name. Pseudo-content, so the token's text is still nothing but the tool's
+   name and the outline still reads as a list of names. */
+.outline-item::after {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: var(--ok);
+}
+
+.outline-error::after {
+  background: var(--err);
+}
+
+.outline-incomplete::after {
+  background: none;
+  border-color: var(--pending);
+}
+
+.outline-running::after {
+  background: var(--running);
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* A spawning call owns a branch, so its token is the one filled harder -- the
+   one place the outline marks a subagent without words. */
+.outline-spawner {
+  background: color-mix(in srgb, var(--pill) 17%, var(--card));
+}
+
+.outline-item:hover {
+  background: color-mix(in srgb, var(--pill) 24%, var(--card));
+}
+
+.outline-error {
+  border-color: color-mix(in srgb, var(--err) 55%, transparent);
+}
+
+.outline-active {
+  border-color: var(--running);
+  background: var(--running-bg);
+  color: var(--running);
+}
+
+/* ---------- the branch header ---------- */
+
+.branch {
+  border-left-color: var(--agent-line);
+}
+
+.branch::before {
+  border-top-color: var(--agent-line);
+}
+
+.branch-title {
+  font-size: 0.62rem;
+  letter-spacing: 0.11em;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.branch-caret {
+  color: var(--accent);
+  font-size: 0.65rem;
+}
+
+.branch-agent {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.branch-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--pill-task);
+  background: var(--pill-task-bg);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0.08rem 0.42rem;
+}
+
+.more-hint {
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-bg);
+  font-weight: 700;
+}
+
+.branch-metrics {
+  font-size: 0.68rem;
+  color: var(--faint-text);
+}
+
+.branch-metrics-live {
+  color: var(--running);
+  font-weight: 600;
+}
+
+/* ---------- the live bar and the run meter ---------- */
+
+.active-tool {
+  border-left: 2px solid var(--running);
+  background: linear-gradient(to right, var(--running-bg), transparent 60%);
+  border-radius: 0 6px 6px 0;
+  color: var(--muted);
+}
+
+.active-tool .glyph {
+  color: var(--running);
+}
+
+.active-tool .tool-icon {
+  color: var(--running);
+}
+
+.run-meter-live .run-meter-cost {
+  color: var(--running);
+}
+
+/* ---------- remaining contrast ---------- */
+
+h1 {
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.node-tag,
+.metric-label,
+.run-meta-key,
+label {
+  color: var(--muted);
+}
+
+.meta {
+  color: var(--faint-text);
+}
+
+.run-number {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.expand-all {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.expand-all:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.run-prompt {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.run-prompt-text {
+  color: var(--text);
+}
+
+.node.user-text {
+  border-left: 2px solid var(--agent-line);
+}
+
+.node.user-text .markdown {
+  color: var(--muted);
+}
+
+.node.notice {
+  border-left: 2px solid var(--line-strong);
+}
+
+.notice-warn { color: var(--warn); border-left-color: var(--warn); }
+.notice-error { color: var(--err); border-left-color: var(--err); }
+
+.run-meta-val,
+.metric-value {
+  color: var(--text);
+}
+
+.event-log {
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+
+input,
+textarea,
+select {
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.jump-target {
+  outline: 2px solid var(--accent);
+}
+
+.follow-latest {
+  box-shadow: 0 2px 12px rgba(23, 23, 23, 0.18);
+}
+
+/* ---------- 8. the outline, where the column is shared ---------- */
+
+/* A fan-out divides the sidebar between its branches, and the refinement pass
+   spent width on all three of the things a token now carries: a larger glyph,
+   uppercase at 11px, and an outcome mark. Two levels of fan-out leaves roughly
+   60px per branch, which is under what those three plus a four-letter name
+   need -- measured, every token in the nested fork came out as `TA…`.
+
+   So inside a fan-out the token gives back what it can and keeps what it must:
+   the glyph and the mark shrink, the padding and the gaps tighten, and the
+   name stays whole. Outside a fan-out nothing changes, because there the
+   column has the room. */
+.outline-fork .outline-item {
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  gap: 0.12rem;
+}
+
+.outline-fork .outline-glyph {
+  width: 10px;
+  height: 10px;
+}
+
+.outline-fork .outline-item::after {
+  width: 4px;
+  height: 4px;
+}
+
+/* ---------- 9. the rail, read at arm's length ---------- */
+
+/* #d8d8d2 at one pixel on white is a line you have to look for, and the rail
+   is meant to be the thing that makes the sequence obvious without looking.
+   One step darker: still a hairline, now actually continuous to the eye. */
+.trajectory::before {
+  border-left-color: #d0d0c9;
+}
+
+/* ---------- 10. two corrections from the live run ---------- */
+
+/* The outcome mark defaulted to green, which quietly made "any state this
+   stylesheet has not named" read as success. It defaults to the pending grey
+   instead, and green is now claimed only by the class that means completed. */
+.outline-item::after {
+  background: var(--pending);
+  opacity: 0.55;
+}
+
+.outline-completed::after {
+  background: var(--ok);
+  opacity: 1;
+}
+
+.outline-error::after,
+.outline-running::after {
+  opacity: 1;
+}
+
+.outline-incomplete::after {
+  opacity: 1;
+}
+
+/* The bar at the top of the page names the tool in flight, and it is the one
+   place the name was still set in lower case while every row below it had gone
+   to caps. */
+.active-tool-name {
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: var(--running);
+}
+
+/* ---------- 11. notices ---------- */
+
+/* A failure notice was being drawn in the same neutral grey as an informational
+   one, and had been for as long as the rule existed: `.node.notice` carries two
+   classes and `.notice-error` one, so the neutral colour won the cascade no
+   matter which was written last. Restated at matching specificity, which is the
+   actual fix -- reordering them would have changed nothing.
+
+   It is the one place on the page where a state was genuinely ambiguous. */
+.node.notice {
+  padding: 0.35rem 0 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.node.notice.notice-info {
+  color: var(--muted);
+  border-left-color: var(--line-strong);
+}
+
+.node.notice.notice-warn {
+  color: var(--warn);
+  border-left-color: var(--warn);
+  background: linear-gradient(to right, color-mix(in srgb, var(--warn) 7%, transparent), transparent 50%);
+}
+
+.node.notice.notice-error {
+  color: var(--err);
+  border-left-color: var(--err);
+  background: linear-gradient(to right, var(--err-bg), transparent 55%);
+  border-radius: 0 7px 7px 0;
+  font-weight: 500;
+}
+
+/* The same mark the rows and the pills use, so a failure reads as a failure
+   wherever it is drawn. */
+.node.notice.notice-error .notice-text::before,
+.node.notice.notice-warn .notice-text::before {
+  display: inline-block;
+  margin-right: 0.45rem;
+  font-weight: 700;
+}
+
+.node.notice.notice-error .notice-text::before { content: '\2715'; }
+.node.notice.notice-warn .notice-text::before { content: '!'; }
+
+/* ...and its node on the rail, which was the last marker still reporting a
+   failed run as an ordinary step. */
+.trajectory > .node.notice.notice-error::before {
+  background: var(--err);
+  border-color: var(--err);
+}
+
+.trajectory > .node.notice.notice-warn::before {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+/* ===========================================================================
+   Navigation, masthead, and two colour corrections
+   ---------------------------------------------------------------------------
+   Five things, none of them structural: a table that could break out of its
+   card, a tool family drawn in the colour reserved for failure, a jump list
+   for a conversation that has grown past one screen, a fold for a run that has
+   been read, and a masthead and footer that frame the page instead of a bare
+   line of text at the top of it.
+   =========================================================================== */
+
+:root {
+  /* The masthead is two lines now -- the wordmark and what the tool is for --
+     so the offset the run header sticks at has to clear it. */
+  --head-h: 3.6rem;
+
+  /* Grep and Glob were drawn in a muted rose, which on a page whose only other
+     warm colour is failure read as "this search went wrong" -- and on the run
+     that prompted this, every Grep in a perfectly successful trajectory came
+     out looking like an error. They move to a muted teal, which is as far from
+     the failure red as the palette gets while staying in the same family of
+     restrained, desaturated colours.
+
+     Red is now spent on exactly one thing: something that actually failed. */
+  --pill-grep: #2f6e6a;
+  --pill-grep-bg: #e7f1f0;
+  --pill-glob: #2f6e6a;
+  --pill-glob-bg: #e7f1f0;
+}
+
+/* ---------- 1. tables stay inside their card ---------- */
+
+/* A markdown table sizes itself from its contents, and a subagent reporting
+   file paths puts a 70-character unbreakable token in a cell -- which set the
+   table's minimum width well past the card holding it, and it hung out through
+   the side.
+
+   `overflow-wrap: anywhere` is the specific fix: unlike `break-word` it counts
+   towards a cell's *min-content* width, so the table's own minimum collapses to
+   about one character per column and `width: 100%` can then be honoured. The
+   column widths are still worked out from the content, so File / Line / Text
+   keep their natural proportions instead of being forced into equal thirds by
+   `table-layout: fixed`. */
+.markdown table {
+  width: 100%;
+  max-width: 100%;
+  margin: 0.85em 0;
+  font-size: 0.82rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  border-collapse: collapse;
+  overflow: hidden;
+}
+
+.markdown th,
+.markdown td {
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line-soft);
+}
+
+.markdown thead th {
+  background: var(--surface);
+  font-weight: 650;
+  color: var(--text);
+  text-align: left;
+}
+
+/* The other two ways prose can push a card open: a long path in inline code,
+   and a bare URL or identifier in a paragraph. */
+.markdown :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+.markdown {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.markdown p,
+.markdown li {
+  overflow-wrap: break-word;
+}
+
+/* ---------- 2. the masthead ---------- */
+
+/* Owner, tool, purpose -- three lines of information in two, set in the same
+   monospaced caps the page uses for every other machine value. The slash is
+   the divider, not decoration: it is the one the paths and the metadata rows
+   already use. */
+.app-head {
+  padding: 0.62rem 1rem 0.6rem;
+}
+
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.wordmark h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.wordmark-slash {
+  color: var(--line-strong);
+  font-weight: 400;
+}
+
+.wordmark-tagline {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--faint-text);
+  white-space: nowrap;
+}
+
+@media (max-width: 899px) {
+  .wordmark-tagline {
+    display: none;
+  }
+}
+
+/* ---------- 3. the footer ---------- */
+
+/* The page had a top edge and no bottom one, so it ended wherever the composer
+   happened to stop. Same type, same slash, same weight as the masthead -- the
+   two are a pair, and between them the content is framed. */
+.app {
+  padding-bottom: 1.6rem;
+}
+
+.app-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 3rem;
+  padding: 0.95rem 1rem 0;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.foot-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.foot-slash {
+  color: var(--line-strong);
+  font-weight: 400;
+}
+
+.foot-dim {
+  color: var(--faint-text);
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .foot-dim {
+    display: none;
+  }
+}
+
+/* ---------- 4. the run jump list ---------- */
+
+/* One level up from the outline: the outline indexes the calls inside a run,
+   this indexes the runs. It leads the sidebar because it is the coarsest
+   navigation on the page, and the outline and the metrics below it both belong
+   to whichever run it has landed on. */
+.run-index {
+  background: var(--rail);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.8rem 0.7rem 0.75rem;
+  min-width: 0;
+}
+
+.run-index-head {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--faint-text);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.run-index-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.runjump {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.32rem 0.4rem;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 5px 5px 0;
+  font: inherit;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.runjump:hover {
+  background: var(--faint);
+  color: var(--text);
+}
+
+.runjump-n {
+  flex: none;
+  width: 1.5em;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--faint-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.runjump-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The same outcome mark the outline and the rows use, at list scale. */
+.runjump::after {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: var(--pending);
+}
+
+.runjump-completed::after { background: var(--ok); }
+.runjump-failed::after { background: var(--err); }
+.runjump-idle::after { background: none; border-color: var(--pending); }
+
+.runjump-running::after {
+  background: var(--running);
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* Where the reader currently is. The accent, used the way it is used
+   everywhere else on the page: for the thing that is current. */
+.runjump-current {
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.runjump-current .runjump-n {
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runjump-running::after {
+    animation: none;
+  }
+}
+
+/* ---------- 5. folding a run away ---------- */
+
+/* A finished run is thousands of pixels of evidence that has already been
+   read. Folding it leaves the header -- which run, how it went -- and one line
+   of the prompt, so the conversation above the current run stays navigable
+   without becoming invisible. Never folded by default: the output is the thing
+   the page exists to show. */
+.run-fold {
+  flex: none;
+  padding: 0.1rem 0.3rem;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--line-strong);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.run-fold:hover {
+  background: var(--faint);
+  color: var(--text);
+}
+
+.run-folded .run-head {
+  border-bottom: none;
+}
+
+/* The whole stub is the control, so re-opening a folded run is a click
+   anywhere on its line rather than a hunt for the caret. */
+.run-stub {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem 0.2rem 0.5rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  font: inherit;
+  font-size: 0.92rem;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-stub:hover {
+  color: var(--text);
+}
+
+.run-stub-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-stub .more-hint {
+  flex: none;
+}
+
+/* Offered at the end of the run, which is where the reader is when they have
+   finished with it -- the caret in the header is for folding one from above,
+   this is for folding the one you have just read. Only once it has finished:
+   there is nothing to have read about a run still streaming. */
+.run-close {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.run-close-btn {
+  padding: 0.3rem 0.85rem;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--faint-text);
+  cursor: pointer;
+}
+
+.run-close-btn:hover {
+  border-color: var(--line-strong);
+  background: var(--faint);
+  color: var(--text);
+}
+
+/* A jump lands the run at the top of the viewport, which is where the sticky
+   masthead is -- so `scrollIntoView` put the run header underneath it. The
+   scroll margin is the header's own height, which is what the run header
+   already sticks at. */
+.run {
+  scroll-margin-top: calc(var(--head-h) + 0.85rem);
+}
+
+/* An absolute working directory is 60-odd characters, and in the masthead it
+   was pushing the run's figures and its status off towards the edge. Every
+   machine value in the bar gets the same cap the session id already had; the
+   full string stays in the DOM and on the tooltip. */
+.status-bar > .meta {
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The gap between runs is sized for two full trajectories. A folded run is one
+   line, so it claws most of that back -- otherwise folding a run trades a wall
+   of output for a wall of nothing. */
+.run-folded {
+  margin-bottom: -2.1rem;
+}
+
+.run-folded .run-stub {
+  padding-bottom: 0.35rem;
+}
+
+/* ===========================================================================
+   Stopping a run
+   ---------------------------------------------------------------------------
+   A cancellation is a third ending, not a failure. It gets its own mark (a
+   filled square), its own word, and a restrained red that is deliberately one
+   step quieter than the red a real failure is drawn in -- the reader asked for
+   this, so it should read as deliberate rather than as something going wrong.
+   =========================================================================== */
+
+:root {
+  /* Between the failure red and the neutral greys: recognisably destructive,
+     visibly not an error. */
+  --stop: #8f4a3f;
+  --stop-bg: #f6ece9;
+}
+
+/* ---------- the control ---------- */
+
+/* Sits next to the run's status, because it acts on exactly what that status
+   reports. An outlined button rather than a filled red one: this is a runtime
+   control on a dense page, not the page's primary action. */
+.stop-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  flex: none;
+  padding: 0.14rem 0.55rem 0.14rem 0.45rem;
+  background: var(--stop-bg);
+  border: 1px solid color-mix(in srgb, var(--stop) 38%, transparent);
+  border-radius: 6px;
+  color: var(--stop);
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.stop-run:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--stop) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--stop) 60%, transparent);
+}
+
+.stop-run:focus-visible {
+  outline: 2px solid var(--stop);
+  outline-offset: 1px;
+}
+
+/* Pressed once and now waiting on the server. It stays in place rather than
+   vanishing, so the click has visible consequences, but it cannot be pressed
+   again -- which is the whole of the "only once" requirement. */
+.stop-run:disabled {
+  opacity: 0.55;
+  cursor: default;
+  background: var(--faint);
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.stop-run-mark {
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+
+/* ---------- the two new statuses ---------- */
+
+/* Still going, so it keeps the running pulse -- the process is being killed,
+   not yet gone, and saying otherwise would be reporting an outcome that has
+   not happened. */
+.pill-stopping {
+  color: var(--stop);
+  background: var(--stop-bg);
+}
+
+.pill-stopping::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* Ended, by request. The square is the mark the whole feature is drawn
+   around. */
+.pill-stopped {
+  color: var(--stop);
+  background: var(--stop-bg);
+}
+
+.pill-stopped::before {
+  content: '\25a0';
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-stopping::before {
+    animation: none;
+  }
+}
+
+/* The jump list and the run header read the same way as everything else. */
+.runjump-stopped::after,
+.runjump-stopping::after {
+  background: var(--stop);
+}
+
+.runjump-stopping::after {
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* ---------- the notice the run ends on ---------- */
+
+/* Same shape as an error notice, one step quieter, and it says what was kept
+   rather than what went wrong. */
+.node.notice.notice-stopped {
+  color: var(--stop);
+  border-left-color: var(--stop);
+  background: linear-gradient(to right, var(--stop-bg), transparent 55%);
+  border-radius: 0 7px 7px 0;
+  font-weight: 500;
+}
+
+.node.notice.notice-stopped .notice-text::before {
+  content: '\25a0';
+  display: inline-block;
+  margin-right: 0.45rem;
+  font-size: 0.85em;
+}
+
+/* ---------- the timeline ---------- */
+
+/* Everything already completed keeps its own marker and its own colour: the
+   run was cancelled, not retroactively broken. Only two nodes change. */
+
+/* The node the run was interrupted at. `incomplete` already means "no result
+   arrived before the run ended", which is exactly what happened to it -- the
+   run-level class is what says the reason was a cancellation, so no second
+   tool status has to exist for this. */
+.run-stopped .trajectory > .node.tool.tool-incomplete::before {
+  background: var(--stop);
+  border-color: var(--stop);
+}
+
+.run-stopped .tool-incomplete > .tool-head .glyph {
+  color: var(--stop);
+}
+
+/* ...and the notice the trajectory ends on, which is the last node on the
+   rail and therefore the marker that reads as "this is where it stopped". */
+.trajectory > .node.notice.notice-stopped::before {
+  background: var(--stop);
+  border-color: var(--stop);
+}
+
+/* A stopped run shows no success mark of its own anywhere: it has no result
+   node to draw one on, and the rail's last marker is the stop. */
+
+/* The interrupted call, in the row itself. */
+.run-stopped .tool-incomplete > .tool-head {
+  background: color-mix(in srgb, var(--stop) 7%, transparent);
+  box-shadow: inset 2px 0 0 var(--stop);
+}
+
+.run-stopped .tool-incomplete > .tool-head .tool-target {
+  color: var(--stop);
+}
+
+/* Same in the outline, so the sidebar and the flow agree about where the run
+   was interrupted. */
+.run-stopped .outline-incomplete::after {
+  background: var(--stop);
+  border-color: var(--stop);
+}
+
+.run-stopped .outline-incomplete {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--stop) 45%, transparent);
+}
+
+/* ===========================================================================
+   Prompt attachments
+   ---------------------------------------------------------------------------
+   A row of small cards above the textarea: what is going out with this prompt,
+   visible while the prompt is being written and removable until it is sent.
+   Same borders, same tile radius and the same status colours as everything
+   else -- an attachment is one more thing the run is made of, not a widget.
+   =========================================================================== */
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0 0 0.85rem;
+  padding: 0;
+}
+
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 22rem;
+  min-width: 0;
+  padding: 0.35rem 0.4rem 0.35rem 0.35rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+/* An image identifies itself; a PDF gets a label, because its first page is not
+   worth fetching to draw at this size. */
+.attachment-thumb {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+}
+
+.attachment-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.attachment-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.attachment-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The path the prompt will name, which is the thing worth being able to read
+   back -- it is what Claude Code is about to be told to open. */
+.attachment-note {
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--faint-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-pending .attachment-note {
+  color: var(--running);
+}
+
+.attachment-failed {
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+  background: color-mix(in srgb, var(--err-bg) 55%, var(--card));
+}
+
+.attachment-failed .attachment-note {
+  color: var(--err);
+}
+
+.attachment-remove {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--faint-text);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attachment-remove:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--err) 40%, transparent);
+  background: var(--err-bg);
+  color: var(--err);
+}
+
+/* While a file is over the textarea. Restrained on purpose: the target is the
+   box the pointer is already over, so it needs confirming, not announcing. */
+.prompt-dropping {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--card));
+  outline: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: -3px;
+}

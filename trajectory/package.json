@@ -1,0 +1,23 @@
+{
+  "name": "trajectory",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web console that drives Claude Code headless runs and renders their trajectories.",
+  "scripts": {
+    "postinstall": "node scripts/setup.mjs",
+    "setup": "node scripts/setup.mjs",
+    "start": "node scripts/start.mjs",
+    "start:rebuild": "node scripts/start.mjs --rebuild",
+    "dev": "node scripts/run.mjs dev",
+    "build": "node scripts/build.mjs",
+    "server": "node scripts/run.mjs server",
+    "record": "node scripts/record.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "electron/main.js",
+  "devDependencies": {
+    "electron": "^33.2.1"
+  }
+}
