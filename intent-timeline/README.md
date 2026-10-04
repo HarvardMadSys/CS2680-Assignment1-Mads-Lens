@@ -174,8 +174,8 @@ in it. Exploring seven apps can reach the $3 cap; if the run stops there, restar
 higher `MAX_BUDGET_USD`.
 
 While it runs, each subagent is a `Task` row you can open to follow its own steps and its report, and
-gets its own lane in **timeline · where the time went**. When it ends, the run summary splits the cost
-by model and counts the subagents spawned and completed.
+gets its own lane in **timeline · where the time went**. When it ends, the run summary counts the
+subagents spawned and completed, and splits the cost by model if more than one model was used.
 
 ## Configuration
 

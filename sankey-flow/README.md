@@ -168,7 +168,8 @@ subagents cost more than a short prompt.
 
 While it runs, press **Expand**: each subagent joins the Flow's Actors column under its type and description,
 its Agent call sits in **In progress** until the report comes back, and **Time** shows which one Claude
-waited on longest. The cat and pace tiles follow the main agent only, so the cat sits ("waiting") while
+waited on longest. (If Claude starts a subagent in the background, its Agent call completes at launch
+instead.) The cat and the TTFT / TPOT tiles follow the main agent only, so the cat sits ("waiting") while
 Claude waits on them.
 
 ## Configuration
