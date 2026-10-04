@@ -148,6 +148,33 @@ under `.claude/skills/`). Those paths are git-ignored here.
 and prints the call tree. It defaults to `--permission-mode acceptEdits`; with `--skip-permissions` it
 runs in `sandbox/` unless you pass `--cwd`.
 
+**Example prompt.** A prompt that gets several subagents working at once:
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the working dir, and any existing directory is accepted. Use a throwaway clone of the app
+collection Controller comes from, separate from the checkout you run it in; it gives the subagents eight
+apps to compare:
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
+```
+
+Press **+** and set **working dir** to the clone's full path, as printed by `echo ~/scratch/mads-lens` (the
+server does not expand `~`). If you have already run something on this page, press the circular-arrow
+button first, so the run starts a fresh session instead of resuming the last one. Nothing else needs
+enabling, with **bypass perms** on or off: the server passes no `--allowedTools` or `--tools` list and no
+turn or budget cap, so the subagent tool (`Agent`, or `Task` in older Claude Code versions) is available
+as long as the subagent fader is above 0 (it starts at 4). "Delegation optional" is enough, since the
+prompt asks for subagents; to ask for eight at once, set the fader to 8 and flip "delegation required".
+
+While it runs, each subagent gets a satellite in the scope that counts its finished calls next to the main
+hub, with a dashed, pulsing link while it is busy. In the middle of the board its calls arrive with `sub`
+badges inside the `Agent` card that started it, and the outline nests them the same way, so you can fold
+each subagent away.
+
 ## Configuration
 
 | Variable | Default | Meaning |

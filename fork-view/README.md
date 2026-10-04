@@ -130,6 +130,28 @@ Each live run is recorded to `sessions/runs/<timestamp>.jsonl` with a `.meta.jso
 If `claude` is missing or fails to start, the run is marked FAILED with the error message, and the
 rest of the app keeps working.
 
+**Example prompt.** This one makes Claude delegate, so the log has something to fork:
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the working directory, which must stay inside the project folder. To give the
+subagents eight apps to compare, clone this app collection into the git-ignored `runs/` folder:
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git runs/mads-lens
+```
+
+Enter `runs/mads-lens` as the **Working directory**. If **Continue from** is showing, set it to
+**Start a new conversation**, or the run tries to resume your latest session instead. Nothing needs
+enabling: the command above restricts no tools and sets no turn or budget cap, so the subagent tool
+(`Agent`, or `Task` in older Claude Code versions) is available, and Fork View forks on either name.
+
+Subagents launched in the same turn fork the log into columns (side by side on a wide window), and
+the outline forks with them. Branch headers time each subagent live and add a `≥$` estimate when it
+reports back. A branch past six steps folds to its header: click it to look inside.
+
 ## Configuration
 
 | Variable | Default | Meaning |

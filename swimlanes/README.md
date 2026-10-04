@@ -91,6 +91,22 @@ claude -p "<prompt>" --output-format stream-json --verbose --forward-subagent-te
 
 **Every live run uses `--dangerously-skip-permissions`.** Claude Code will edit files and run shell commands in the working directory without asking first. Point it only at a scratch directory you don't mind changing, never at your home folder or a repository you care about. Live runs on the bundled `claude_scratchpad/` will change those files.
 
+**Example prompt**
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the working directory, and any existing directory is accepted. A throwaway clone of this collection makes a good scratch directory: nothing is lost if the run changes it, and the subagents get eight apps to compare.
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
+```
+
+Start the server with `python3 website.py --dir ~/scratch/mads-lens`, or type `~/scratch/mads-lens` into the **working dir** field (`~` is expanded on the server). If this server has already run a live prompt, click **New session** first, or the run tries to resume that session. Nothing needs enabling: the command above restricts no tools and sets no turn or budget cap, so the subagent tool (`Agent`, or `Task` in older Claude Code versions) is available, and Swimlanes draws a lane for either name. The **subagents** box only steers which model each subagent gets, not whether Claude delegates, so any setting works.
+
+While it runs, switch to **Timeline**: each subagent gets its own lane, labelled with its task description and model, subagents working at the same time stack one above another, and striped blocks are calls still in flight. Leave **follow live** on to stay with the newest events, and when the run ends, drag the zoom slider left to fit the whole run on screen.
+
 ## Configuration
 
 | Setting | Default | Notes |

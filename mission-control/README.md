@@ -98,6 +98,24 @@ Follow-ups add `--resume <session id>`, and `--max-turns` is added when you set 
 
 Every run asks for the [Claude in Chrome](https://code.claude.com/docs/en/chrome) browser tools (`--chrome`). If the extension isn't installed or Chrome isn't open, the session reports that the browser tools are unavailable and everything else works as usual.
 
+### Example prompt
+
+A prompt that makes Claude delegate, so there are subagents to follow:
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the session's folder. Mission Control takes any folder except your home folder and the filesystem root, so use a throwaway clone of the repository this app comes from, which gives the subagents eight apps to compare:
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
+```
+
+On the home screen, type the clone's full path into **Folder** (`echo ~/scratch/mads-lens` prints it; the app doesn't expand `~`), or click **Browse**, which opens at your home folder, and pick `scratch`, then `mads-lens`. Paste the prompt and click **Start session**. Nothing needs enabling: the allowlist above includes both `Agent` and `Task` (the subagent tool's newer and older names), there is no budget cap, and turns are capped only if you fill in **max turns** in the composer. If you set `MISSION_CONTROL_ALLOWED_TOOLS`, keep both names in it.
+
+Each subagent gets a card in the agents strip as it starts, showing its task, state and tool-call count, and the **Main session** card counts them and how many are still active. Click a card to follow one subagent on its own: the conversation and outline narrow to its calls, and its report appears there when it finishes.
+
 ## Configuration
 
 Set these environment variables before starting the server.
