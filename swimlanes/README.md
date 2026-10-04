@@ -97,7 +97,7 @@ claude -p "<prompt>" --output-format stream-json --verbose --forward-subagent-te
 Spawn subagents to explore the repo and report the most creative features
 ```
 
-"The repo" is the working directory, and any existing directory is accepted. A throwaway clone of this collection makes a good scratch directory: nothing is lost if the run changes it, and the subagents get eight apps to compare.
+"The repo" is the working directory, and any existing directory is accepted. A throwaway clone of this collection makes a good scratch directory: nothing is lost if the run changes it, and the subagents get seven apps to compare.
 
 ```bash
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens

@@ -155,7 +155,7 @@ Spawn subagents to explore the repo and report the most creative features
 ```
 
 "The repo" is the working dir, and any existing directory is accepted. Use a throwaway clone of the app
-collection Controller comes from, separate from the checkout you run it in; it gives the subagents eight
+collection Controller comes from, separate from the checkout you run it in; it gives the subagents seven
 apps to compare:
 
 ```bash
@@ -168,7 +168,7 @@ button first, so the run starts a fresh session instead of resuming the last one
 enabling, with **bypass perms** on or off: the server passes no `--allowedTools` or `--tools` list and no
 turn or budget cap, so the subagent tool (`Agent`, or `Task` in older Claude Code versions) is available
 as long as the subagent fader is above 0 (it starts at 4). "Delegation optional" is enough, since the
-prompt asks for subagents; to ask for eight at once, set the fader to 8 and flip "delegation required".
+prompt asks for subagents; to ask for seven at once, set the fader to 7 and flip "delegation required".
 
 While it runs, each subagent gets a satellite in the scope that counts its finished calls next to the main
 hub, with a dashed, pulsing link while it is busy. In the middle of the board its calls arrive with `sub`

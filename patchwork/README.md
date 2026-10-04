@@ -101,7 +101,7 @@ A prompt that makes Claude delegate:
 Spawn subagents to explore the repo and report the most creative features
 ```
 
-"The repo" is the chat's workspace. The picker accepts any existing folder, so make a disposable clone of this app collection, which gives the subagents eight apps to compare:
+"The repo" is the chat's workspace. The picker accepts any existing folder, so make a disposable clone of this app collection, which gives the subagents seven apps to compare:
 
 ```bash
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens

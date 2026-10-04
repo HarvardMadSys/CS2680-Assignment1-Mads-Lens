@@ -137,7 +137,7 @@ Spawn subagents to explore the repo and report the most creative features
 ```
 
 "The repo" is the working directory, which must stay inside the project folder. To give the
-subagents eight apps to compare, clone this app collection into the git-ignored `runs/` folder:
+subagents seven apps to compare, clone this app collection into the git-ignored `runs/` folder:
 
 ```bash
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git runs/mads-lens

@@ -106,7 +106,7 @@ A prompt that makes Claude delegate, so there are subagents to follow:
 Spawn subagents to explore the repo and report the most creative features
 ```
 
-"The repo" is the session's folder. Mission Control takes any folder except your home folder and the filesystem root, so use a throwaway clone of the repository this app comes from, which gives the subagents eight apps to compare:
+"The repo" is the session's folder. Mission Control takes any folder except your home folder and the filesystem root, so use a throwaway clone of the repository this app comes from, which gives the subagents seven apps to compare:
 
 ```bash
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens

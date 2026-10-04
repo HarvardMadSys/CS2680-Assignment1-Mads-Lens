@@ -160,7 +160,7 @@ Spawn subagents to explore the repo and report the most creative features
 ```
 
 "The repo" is the working directory. Give the subagents something to compare: a throwaway clone of
-this whole collection of eight apps, outside anything you care about.
+this whole collection of seven apps, outside anything you care about.
 
 ```bash
 git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
@@ -170,7 +170,7 @@ Type `~/scratch/mads-lens` into **working directory**. Any existing directory is
 expanded on the server. Nothing needs to change for subagents to spawn: the default allowlist includes
 `Task`, which is enough even in Claude Code versions that call the subagent tool `Agent`
 (`03-subagents-parallel.jsonl` was recorded that way). If you set `CLAUDE_ALLOWED_TOOLS`, keep `Task`
-in it. Exploring eight apps can reach the $3 cap; if the run stops there, restart the server with a
+in it. Exploring seven apps can reach the $3 cap; if the run stops there, restart the server with a
 higher `MAX_BUDGET_USD`.
 
 While it runs, each subagent is a `Task` row you can open to follow its own steps and its report, and
