@@ -28,7 +28,7 @@ async function main() {
   // on the open internet and the operator's agents is the decision in `checkLocalBoundary` — and
   // a rule that only some entry points applied would just move the way in. See that module for
   // what is refused and why.
-  const boundary = { port: config.port, allowedHosts: config.allowedHosts };
+  const boundary = { allowedHosts: config.allowedHosts };
 
   // Admission, not liveness. Shutdown owns what it owns through `ctx` (see `OwnedWork`): a
   // response ending is not the work ending, so counting sockets here would say the server owns

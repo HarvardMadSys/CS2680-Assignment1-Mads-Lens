@@ -2,7 +2,7 @@ import { hostname } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { checkLocalBoundary, isLoopbackHostname, isServableHostname } from '@/server/net/localOnly';
 
-const boundary = { port: 8000 };
+const boundary = {};
 const check = (headers: { host?: string; origin?: string }) => checkLocalBoundary(headers, boundary);
 
 describe('isLoopbackHostname', () => {
@@ -50,9 +50,33 @@ describe('the request boundary', () => {
     expect(check({ host: '192.168.1.5:8000', origin: 'http://192.168.1.5:8000' })).toEqual({ ok: true });
     expect(check({ host: '[fe80::1]:8000', origin: 'http://[fe80::1]:8000' })).toEqual({ ok: true });
     expect(check({ host: `${hostname()}:8000`, origin: `http://${hostname()}:8000` })).toEqual({ ok: true });
-    expect(
-      checkLocalBoundary({ host: 'console.lan:8000' }, { port: 8000, allowedHosts: ['console.lan'] }),
-    ).toEqual({ ok: true });
+    expect(checkLocalBoundary({ host: 'console.lan:8000' }, { allowedHosts: ['console.lan'] })).toEqual({
+      ok: true,
+    });
+  });
+
+  it('serves the console through a port forward or proxy on another port', () => {
+    // `ssh -L 3080:localhost:8000`, `docker run -p 3080:8000`: the browser dialled 3080, so Host
+    // and Origin both name 3080, whatever port this server listens on.
+    expect(check({ host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' })).toEqual({ ok: true });
+    expect(check({ host: 'localhost:9000' })).toEqual({ ok: true });
+    // a proxy on the scheme's default port, which the browser leaves out of both headers
+    expect(check({ host: 'localhost', origin: 'http://localhost' })).toEqual({ ok: true });
+    expect(check({ host: '[::1]' })).toEqual({ ok: true });
+  });
+
+  it('still refuses a page on another local port', () => {
+    // Not checking Host's port must not let a different local app's page drive the console: the
+    // page's origin and the authority it is asking still have to agree, port included.
+    for (const [host, origin] of [
+      ['127.0.0.1:8000', 'http://127.0.0.1:3080'],
+      ['127.0.0.1:3080', 'http://127.0.0.1:8000'],
+      ['localhost', 'http://localhost:8000'],
+    ]) {
+      const verdict = check({ host, origin });
+      expect(verdict.ok).toBe(false);
+      if (!verdict.ok) expect(verdict.status).toBe(403);
+    }
   });
 
   it('refuses a page served from a different authority than the one it is asking', () => {
@@ -108,7 +132,12 @@ describe('the request boundary', () => {
    * can be caught.
    */
   it('refuses a Host this server does not answer to', () => {
-    for (const host of ['rebind.example:8000', 'evil.com', '127.0.0.1:4000', 'localhost:80', '[::1]']) {
+    for (const host of [
+      'rebind.example:8000',
+      'rebind.example:3080',
+      'evil.com',
+      'localhost.evil.com:8000',
+    ]) {
       const verdict = check({ host });
       expect(verdict.ok).toBe(false);
       if (!verdict.ok) expect(verdict.status).toBe(421);
@@ -116,7 +145,15 @@ describe('the request boundary', () => {
   });
 
   it('refuses a missing or malformed Host rather than guessing', () => {
-    for (const headers of [{}, { host: '' }, { host: '[::1:8000' }, { host: 'a:b:c' }])
+    for (const headers of [
+      {},
+      { host: '' },
+      { host: '[::1:8000' },
+      { host: 'a:b:c' },
+      { host: 'localhost:http' },
+      { host: '127.0.0.1:65536' },
+      { host: '[::1]:-1' },
+    ])
       expect(check(headers).ok).toBe(false);
     // a repeated Host header is a smuggling shape, not an ambiguity to resolve
     expect(checkLocalBoundary({ host: ['127.0.0.1:8000', 'evil.com'] }, boundary).ok).toBe(false);

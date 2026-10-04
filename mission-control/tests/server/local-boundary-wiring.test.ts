@@ -1,4 +1,5 @@
 import { createServer, get, type Server } from 'node:http';
+import { connect, createServer as createTcpServer, type Socket } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { loadConfig } from '@/server/config';
@@ -23,7 +24,7 @@ beforeAll(async () => {
   repo.createLane(db, { id: 'lane', name: 'L', cwd: '/tmp', permission: 'allowlist', createdAt: 1 });
   hub = new Hub({ db, flushMs: 5 });
   const srv = createServer((req, res) => {
-    const verdict = checkLocalBoundary(req.headers, { port });
+    const verdict = checkLocalBoundary(req.headers, {});
     if (!verdict.ok) {
       res.writeHead(verdict.status, { 'content-type': 'text/plain' });
       res.end(verdict.reason);
@@ -33,7 +34,7 @@ beforeAll(async () => {
     res.end('served');
   });
   srv.on('upgrade', (req, socket, head) => {
-    const verdict = checkLocalBoundary(req.headers, { port });
+    const verdict = checkLocalBoundary(req.headers, {});
     if (!verdict.ok) {
       socket.end(`HTTP/1.1 ${verdict.status} Forbidden\r\nConnection: close\r\n\r\n`);
       return;
@@ -53,9 +54,9 @@ afterAll(async () => {
   await new Promise<void>((r) => server.close(() => r()));
 });
 
-function request(headers: Record<string, string>): Promise<{ status: number; body: string }> {
+function request(headers: Record<string, string>, via = port): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    const req = get({ host: '127.0.0.1', port, path: '/', headers }, (res) => {
+    const req = get({ host: '127.0.0.1', port: via, path: '/', headers }, (res) => {
       let body = '';
       res.on('data', (chunk) => {
         body += chunk;
@@ -66,9 +67,9 @@ function request(headers: Record<string, string>): Promise<{ status: number; bod
   });
 }
 
-function upgrade(origin?: string): Promise<{ opened: boolean; error?: string }> {
+function upgrade(origin?: string, via = port): Promise<{ opened: boolean; error?: string }> {
   return new Promise((resolve) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, origin === undefined ? {} : { origin });
+    const ws = new WebSocket(`ws://127.0.0.1:${via}/ws`, origin === undefined ? {} : { origin });
     ws.on('open', () => {
       ws.close();
       resolve({ opened: true });
@@ -89,6 +90,32 @@ describe('the local boundary at the real entry points', () => {
     const host = `192.0.2.10:${port}`;
     expect(await request({ host, origin: `http://${host}` })).toMatchObject({ status: 200 });
     expect(await request({ host, origin: `http://192.0.2.11:${port}` })).toMatchObject({ status: 403 });
+  });
+
+  it('serves the console through a port forward to another port', async () => {
+    // `ssh -L 3080:localhost:8000`, `docker run -p 3080:8000`: the bytes are relayed untouched, so
+    // Host and Origin name the port the browser dialled, not the one this server listens on.
+    const sockets = new Set<Socket>();
+    const forward = createTcpServer((client) => {
+      const upstream = connect(port, '127.0.0.1');
+      sockets.add(client).add(upstream);
+      client.on('error', () => upstream.destroy());
+      upstream.on('error', () => client.destroy());
+      client.pipe(upstream).pipe(client);
+    });
+    await new Promise<void>((r) => forward.listen(0, '127.0.0.1', () => r()));
+    const addr = forward.address();
+    if (!addr || typeof addr === 'string') throw new Error('no address');
+    const via = addr.port;
+    try {
+      expect(await request({ origin: `http://127.0.0.1:${via}` }, via)).toMatchObject({ status: 200 });
+      expect(await upgrade(`http://127.0.0.1:${via}`, via)).toMatchObject({ opened: true });
+      // a page served from the server's own port is another origin than the forwarded console
+      expect(await upgrade(`http://127.0.0.1:${port}`, via)).toMatchObject({ opened: false });
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((r) => forward.close(() => r()));
+    }
   });
 
   it('refuses a foreign page over HTTP', async () => {

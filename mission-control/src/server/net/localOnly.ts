@@ -15,9 +15,11 @@ import { hostname as machineHostname } from 'node:os';
  * Two questions, both answered here so the HTTP and WebSocket entry points cannot disagree:
  *
  * - **Host** — which authority did the client think it was talking to? Only a loopback name, an IP
- *   literal, this machine's own hostname, or a name listed in `MISSION_CONTROL_ALLOWED_HOSTS`, on
- *   this server's own port, is accepted. None of those can be pointed at us by someone else, which
- *   is what stops a rebound hostname.
+ *   literal, this machine's own hostname, or a name listed in `MISSION_CONTROL_ALLOWED_HOSTS` is
+ *   accepted. None of those can be pointed at us by someone else, which is what stops a rebound
+ *   hostname. The port is not compared with ours: a port forward (`ssh -L 3080:localhost:8000`,
+ *   `docker run -p 3080:8000`) or a proxy delivers requests naming the port the browser dialled,
+ *   and a rebound hostname is refused whatever port it names.
  * - **Origin** — which document is asking? Present means a browser is asking on behalf of a page;
  *   it must be this same origin (the authority named by `Host`). Absent means a non-browser tool
  *   (curl, a test, an editor integration) is asking directly, which is allowed: the header is not a
@@ -28,8 +30,6 @@ import { hostname as machineHostname } from 'node:os';
  */
 
 export interface LocalBoundary {
-  /** The port this server is listening on; an Origin or Host naming another port is not us. */
-  port: number;
   /** Extra hostnames (lower-cased) this server answers to, from `MISSION_CONTROL_ALLOWED_HOSTS`. */
   allowedHosts?: readonly string[];
 }
@@ -98,6 +98,11 @@ function splitAuthority(authority: string): { hostname: string; port: string } |
   return { hostname: parts[0] ?? '', port: parts[1] ?? '' };
 }
 
+/** A port as it appears in an authority: empty (the scheme's default) or 0–65535. */
+function isPort(port: string): boolean {
+  return /^\d{0,5}$/.test(port) && Number(port) <= 65535;
+}
+
 function first(value: string | string[] | undefined): string | undefined {
   // Node collapses repeated headers, but a duplicated `Host` is a request smuggling shape rather
   // than an ambiguity to resolve: refuse it by treating the array as unusable.
@@ -114,15 +119,14 @@ export function checkLocalBoundary(headers: RequestHeaders, boundary: LocalBound
   const host = first(headers.host);
   if (host === undefined) return { ok: false, status: 421, reason: 'no Host header' };
   const authority = splitAuthority(host.trim());
-  if (!authority) return { ok: false, status: 421, reason: `malformed Host ${JSON.stringify(host)}` };
+  if (!authority || !isPort(authority.port))
+    return { ok: false, status: 421, reason: `malformed Host ${JSON.stringify(host)}` };
   if (!isServableHostname(authority.hostname, boundary.allowedHosts))
     return {
       ok: false,
       status: 421,
       reason: `Host ${JSON.stringify(host)} is not a loopback address, IP address or allowed hostname (see MISSION_CONTROL_ALLOWED_HOSTS)`,
     };
-  if (authority.port !== String(boundary.port))
-    return { ok: false, status: 421, reason: `Host ${JSON.stringify(host)} is not this server's port` };
 
   const origin = first(headers.origin);
   // No Origin: not a browser acting for a page. `curl`, an editor integration, the Playwright
@@ -138,7 +142,8 @@ export function checkLocalBoundary(headers: RequestHeaders, boundary: LocalBound
     return { ok: false, status: 403, reason: `malformed Origin ${JSON.stringify(origin)}` };
   }
   if (parsed.protocol !== 'http:') return { ok: false, status: 403, reason: `Origin ${origin} is not http` };
-  // Same origin: the page asking must have been served from the very authority this request names.
+  // Same origin: the page asking must have been served from the very authority this request names,
+  // port included, so a page on another local port is still another origin.
   if (parsed.hostname.toLowerCase() !== authority.hostname.toLowerCase() || parsed.port !== authority.port)
     return { ok: false, status: 403, reason: `Origin ${origin} is not this server` };
   return { ok: true };
