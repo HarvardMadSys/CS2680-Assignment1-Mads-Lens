@@ -145,6 +145,32 @@ remembered in the browser.
 
 The server validates the policy and rejects bad input with HTTP 400 and a plain message.
 
+**Example prompt.** A prompt that makes Claude delegate, so there are subagents to watch:
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the working directory. Any existing directory is accepted, and a throwaway clone of this
+collection makes a safe scratch folder with eight apps for the subagents to compare:
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
+```
+
+Type `~/scratch/mads-lens` into the **Working directory** field and press Enter (after **New session**, if a
+session is open). Nothing has to be enabled for subagents: the server adds no turn cap, and with every tool
+checked (the default) it sends no `--tools` flag. The Policy panel is remembered, though, and its
+**read-only** and **none** presets leave out **Task (subagents)**, so Claude cannot start any. Press **all**
+or tick that box again, and keep `Task` and `Agent` out of the deny patterns. (Newer Claude Code versions
+call the tool `Agent`; the **Task** box still enables it.) If you set a budget cap, leave room: several
+subagents cost more than a short prompt.
+
+While it runs, press **Expand**: each subagent joins the Flow's Actors column under its type and description,
+its Agent call sits in **In progress** until the report comes back, and **Time** shows which one Claude
+waited on longest. The cat and pace tiles follow the main agent only, so the cat sits ("waiting") while
+Claude waits on them.
+
 ## Configuration
 
 | Setting | Default | Purpose |

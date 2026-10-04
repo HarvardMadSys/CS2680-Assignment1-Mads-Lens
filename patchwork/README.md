@@ -93,6 +93,22 @@ claude -p "<prompt>" --output-format stream-json --verbose \
 - If `claude` is missing or fails to start, the run is shown as **Failed** with the error message.
 - Chats are saved under `server/data/chats/<id>/` (`meta.json` and `events.jsonl`). Delete a chat from the sidebar menu or remove its folder.
 
+### Example prompt
+
+A prompt that makes Claude delegate:
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the chat's workspace. The picker accepts any existing folder, so make a disposable clone of this app collection, which gives the subagents eight apps to compare:
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
+```
+
+Click **Change**, paste `~/scratch/mads-lens`, choose **Use workspace** (this starts a new chat there) and send the prompt. There is nothing to enable first: Patchwork passes no `--allowedTools` or `--disallowedTools` list and no turn or budget cap, so with `bypassPermissions` the subagent tool (`Agent`, called `Task` in older Claude Code versions) is available as usual. While the run is active the Trajectory panel opens in **Lanes**: watch the lead's "Assigned → Assigned to …" cards appear as each subagent gets a named lane, click **Wide view** to see the lanes side by side, and wait for the "Result returned" cards. The panel closes when the run ends; reopen it with **Show trajectory**.
+
 ## Configuration
 
 All settings are environment variables, for example `PORT=9000 npm run dev`.

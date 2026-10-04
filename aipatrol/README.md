@@ -104,6 +104,24 @@ Things to know:
 - Run history lives in the browser tab. Reloading the page abandons in-flight runs, and the server stops their `claude` processes.
 - Under `npm run dev`, task blocks, subagent blocks and outline lanes start folded. In the production build (`npm run start`), small ones start open.
 
+**Example prompt.** This prompt asks Claude to delegate, so the outline has lanes to draw:
+
+```
+Spawn subagents to explore the repo and report the most creative features
+```
+
+"The repo" is the run's working directory, and the server accepts any existing directory. Point the run at a throwaway clone of the collection AIPatrol comes from, which holds eight apps for the subagents to compare. Keep it apart from the checkout you run AIPatrol from: by default the subagents skip permission prompts as well.
+
+```bash
+git clone --depth 1 https://github.com/HarvardMadSys/CS2680-Assignment1-Mads-Lens.git ~/scratch/mads-lens
+```
+
+Click **New run** in the History sidebar if a run is open, then click the directory under the prompt box, type `~/scratch/mads-lens` and press Enter (or start the server with `DEFAULT_CWD=~/scratch/mads-lens npm run dev`).
+
+Nothing needs switching on: the server never restricts the tool set or caps turns or budget, so the subagent tool (`Agent`, or `Task` in older Claude Code versions) is available. `ALLOWED_TOOLS` doesn't block it either, because launching a subagent needs no approval; the list then applies to the subagents' own calls.
+
+While they work, the outline forks into one lane per subagent, each headed by a pill that names what it was asked to do (**Names / Tools** flips this) and stays blue until that subagent reports back. In the transcript, each subagent's events nest under the `Agent` call that launched it; under `npm run dev` they start folded, so click a pill to jump to its call.
+
 ## Configuration
 
 | Variable | Default | Effect |
