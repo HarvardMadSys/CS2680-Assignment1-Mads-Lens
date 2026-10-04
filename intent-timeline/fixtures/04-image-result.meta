@@ -1,6 +1,0 @@
-scenario=04-image-result
-exit=0
-seconds=15
-cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
-flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 2 
-prompt=Read the image file assets/banner.png and describe what you see in one sentence. Do not modify anything.

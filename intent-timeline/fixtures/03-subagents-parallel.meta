@@ -1,6 +1,0 @@
-scenario=03-subagents-parallel
-exit=0
-seconds=52
-cwd=/Users/bian1d/Desktop/Harvard/26Fall/Courses/CS2680/assignment1/fixtures/../scratch/demo-repo
-flags=--output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Glob,Grep,Task,Bash(python3 -m pytest:*),Bash(python3 -m logparse.cli:*),Bash(ls:*),Bash(cat:*) --max-budget-usd 4 
-prompt=Spawn two subagents in parallel using the Task tool. Subagent A surveys the src/ directory; subagent B surveys the tests/ directory. Each subagent must list the files it finds and explain in two or three sentences what the code there does. After both report back, write one combined paragraph summarizing the project. Do not modify any files.
