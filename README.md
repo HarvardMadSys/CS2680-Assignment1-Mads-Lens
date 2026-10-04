@@ -55,8 +55,8 @@ or consuming Claude usage.
 </tr>
 <tr>
 <td colspan="2" align="center" valign="top">
-<a href="mission-control/"><img src="docs/gallery/mission-control.jpg" alt="Mission Control mid-run, with a main-session card and three Working subagent cards above a tool-call outline and three stacked Agent groups, the last expanded to show a nested subagent's navigate call." width="50%"></a><br>
-<b><a href="mission-control/">Mission Control</a></b>: Makes each subagent easy to inspect: its card opens a focused view of its task, activity and result, with a call inspector for the details.<br>
+<a href="subagents-as-a-team/"><img src="docs/gallery/subagents-as-a-team.jpg" alt="Subagents as a team mid-run, with a main-session card and three Working subagent cards above a tool-call outline and three stacked Agent groups, the last expanded to show a nested subagent's navigate call." width="50%"></a><br>
+<b><a href="subagents-as-a-team/">Subagents as a team</a></b>: Makes each subagent easy to inspect: its card opens a focused view of its task, activity and result, with a call inspector for the details.<br>
 <sub>Next.js + tRPC + SQLite · Created by Saul Richardson</sub>
 </td>
 </tr>
