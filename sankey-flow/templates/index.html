@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude Code · headless frontend</title>
+  <link rel="icon" href="data:,">
+  <!-- daisyUI 5 component styles + the Tailwind 4 browser runtime for utility classes (both vendored, no build step) -->
+  <link href="{{ url_for('static', filename='vendor/daisyui.css') }}" rel="stylesheet" type="text/css">
+  <script src="{{ url_for('static', filename='vendor/tailwind-browser.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="h-screen flex flex-col bg-base-200 text-base-content">
+  <header class="navbar min-h-14 py-1 px-4 gap-3 bg-base-100 border-b border-base-300">
+    <div class="flex items-baseline gap-2">
+      <span class="font-semibold">Claude Code</span>
+      <span class="text-sm opacity-60">headless frontend</span>
+    </div>
+    <div id="session-badge" class="flex flex-wrap items-center gap-2 text-xs" hidden>
+      <span class="badge badge-sm badge-soft badge-primary gap-1">session <code id="session-id" title=""></code></span>
+      <span class="badge badge-sm badge-ghost gap-1">in <code id="session-cwd" title=""></code></span>
+    </div>
+    <span class="flex-1"></span>
+    <div class="join" title="Theme" role="radiogroup" aria-label="Theme">
+      <input type="radio" name="theme" class="btn btn-xs join-item" aria-label="Auto" value="auto" checked>
+      <input type="radio" name="theme" class="btn btn-xs join-item theme-controller" aria-label="Light" value="light">
+      <input type="radio" name="theme" class="btn btn-xs join-item theme-controller" aria-label="Dark" value="dark">
+    </div>
+    <button id="sessions" type="button" class="btn btn-sm btn-outline" title="Browse and reopen previous sessions">Sessions</button>
+    <button id="new-session" type="button" class="btn btn-sm btn-ghost" hidden>New session</button>
+  </header>
+
+  <main class="split flex-1 min-h-0 grid">
+    <aside class="tree-pane min-w-0 min-h-0 flex flex-col overflow-auto bg-base-100 border-r border-base-300">
+      <!-- Pace strip: the cat mirrors how fast tokens are arriving (sleep / sit / walk / run, --cat-speed follows
+           tokens/s); the tiles hold the latest TTFT, TPOT and latency of the active run. Hover the cat for definitions. -->
+      <div id="pace" class="pace flex items-center gap-3 px-3 py-2 border-b border-base-300" aria-label="Pace">
+        <div class="pace-cat tooltip tooltip-bottom">
+          <div class="tooltip-content">
+            <p><b>TTFT</b> — time to first token: from the request (run start, or the last tool result handed back to Claude) until the first streamed token arrives.</p>
+            <p><b>TPOT</b> — time per output token: the message's streaming time divided by its tokens minus one. tokens/s is its inverse, smoothed.</p>
+            <p><b>Latency</b> — how long the last tool call took (tool_use → tool_result), and the last full API turn (request → end of the reply).</p>
+            <p class="opacity-70">The cat sleeps when idle, waits for the first token or a tool, walks under 25 tokens/s and runs at or above it.</p>
+          </div>
+          <div id="cat" class="cat" data-state="sleep" role="img" aria-label="cat, sleeping">
+            <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <g class="cat-lines"><path d="M4 44h12M0 52h14M4 60h12"/></g>
+              <g class="cat-zz"><text class="cat-z cat-z1" x="82" y="22">z</text><text class="cat-z cat-z2" x="89" y="12">Z</text></g>
+              <g class="cat-figure">
+                <path class="cat-fur cat-tail" d="M25 56q-16-2-10-22"/>
+                <g class="cat-legs cat-far"><rect class="cat-fur cat-leg cat-lb" x="30" y="56" width="9" height="18" rx="4.5"/><rect class="cat-fur cat-leg cat-lf" x="55" y="56" width="9" height="18" rx="4.5"/></g>
+                <ellipse class="cat-fur cat-body" cx="50" cy="55" rx="27" ry="17"/>
+                <g class="cat-legs cat-near"><rect class="cat-fur cat-leg cat-lb" x="38" y="56" width="9" height="18" rx="4.5"/><rect class="cat-fur cat-leg cat-lf" x="63" y="56" width="9" height="18" rx="4.5"/></g>
+                <g class="cat-head">
+                  <path class="cat-fur" d="M59 30 60 10 74 20zM79 20 93 10 92 31z"/>
+                  <path class="cat-inner" d="M62 27 63 15 71 21zM81 21 90 15 89 27z"/>
+                  <circle class="cat-fur" cx="74" cy="38" r="18"/>
+                  <g class="cat-eyes cat-open"><ellipse cx="67" cy="37" rx="3.2" ry="4"/><ellipse cx="82" cy="37" rx="3.2" ry="4"/></g>
+                  <g class="cat-eyes cat-shut"><path d="M63 38q4 3 8 0M78 38q4 3 8 0"/></g>
+                  <path class="cat-mouth" d="M74 44q3 4 6 0"/><path class="cat-nose" d="M76 42h5l-2.5 3z"/>
+                  <path class="cat-whisk" d="M86 44l9-2M86 47h9M64 44l-9-2M64 47h-9"/>
+                </g>
+              </g>
+            </svg>
+          </div>
+          <div id="cat-state" class="cat-state">sleeping</div>
+        </div>
+        <div class="stats stats-horizontal pace-stats flex-1 min-w-0 bg-base-100 border border-base-300">
+          <div class="stat" title="Time to first token of the latest request in this run">
+            <div class="stat-title">TTFT</div>
+            <div id="pace-ttft" class="stat-value">—</div>
+            <div id="pace-ttft-desc" class="stat-desc">to first token</div>
+          </div>
+          <div class="stat" title="Time per output token of the message being streamed (tokens/s below, smoothed)">
+            <div class="stat-title">TPOT</div>
+            <div id="pace-tpot" class="stat-value">—</div>
+            <div id="pace-tpot-desc" class="stat-desc">tokens/s</div>
+          </div>
+          <div class="stat" title="Last tool call (value) and last full API turn (below)">
+            <div class="stat-title">Latency</div>
+            <div id="pace-latency" class="stat-value">—</div>
+            <div id="pace-latency-desc" class="stat-desc">last tool · last turn</div>
+          </div>
+        </div>
+      </div>
+      <!-- Trajectory summary card: the flow thumbnail (flow.js renders into #flow-thumb), the session's key counts,
+           and Expand, which opens the full-screen #trajectory-modal (Flow / Timeline tabs) further down the page. -->
+      <section id="trajectory-card" class="card card-border bg-base-100 m-3 mt-2 shrink-0">
+        <div class="card-body p-3 gap-2">
+          <div class="flex items-center gap-2">
+            <h2 class="text-xs font-semibold uppercase tracking-wide opacity-70 flex-1">Trajectory</h2>
+            <button id="trajectory-expand" type="button" class="btn btn-sm btn-primary" title="Open the full-screen Flow / Timeline view" disabled>Expand</button>
+          </div>
+          <div class="flex flex-wrap gap-3 items-start">
+            <div id="flow-thumb" class="w-[240px] h-[120px] shrink-0 rounded-box bg-base-200 border border-base-300 overflow-hidden"
+                 role="img" aria-label="Trajectory flow preview"></div>   <!-- flow.js renders into this -->
+            <div class="flex-1 min-w-[180px] flex flex-col gap-1 @container">
+              <div class="grid grid-cols-2 @[250px]:grid-cols-4 gap-x-2 gap-y-1 text-center">
+                <div title="Assistant API turns across the whole session, including subagents (the run header's &quot;API turns&quot; counts the main agent only)"><div id="traj-turns" class="text-lg font-semibold tabular-nums">—</div><div class="text-[10px] leading-tight opacity-60">LLM turns</div></div>
+                <div title="Tool calls across the main agent and any subagents"><div id="traj-tools" class="text-lg font-semibold tabular-nums">—</div><div class="text-[10px] leading-tight opacity-60">Tool calls</div></div>
+                <div title="Subagents spawned in this session"><div id="traj-subagents" class="text-lg font-semibold tabular-nums">—</div><div class="text-[10px] leading-tight opacity-60">Subagents</div></div>
+                <div title="Failed steps plus failed runs"><div id="traj-failures" class="text-lg font-semibold tabular-nums">—</div><div class="text-[10px] leading-tight opacity-60">Failures</div></div>
+              </div>
+              <div id="traj-top-tools" class="flex flex-wrap gap-1 text-xs"></div>   <!-- badge badge-ghost badge-xs per tool: "Bash ×4" -->
+              <div id="traj-wall" class="text-xs opacity-60"></div>                    <!-- "wall 3 min 45 s" -->
+            </div>
+          </div>
+          <p id="tree-empty" class="empty text-xs opacity-60 m-0">Run a prompt to see the trajectory.</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="dialogue flex flex-col min-h-0 min-w-0">
+      <div id="transcript" class="flex-1 min-w-0 overflow-auto px-4 py-4 flex flex-col gap-4" aria-live="polite">
+        <div id="welcome" class="empty text-sm opacity-60">Pick a working directory, write a prompt, and press Run. Events stream in as Claude works; follow-up prompts continue the same session.</div>
+      </div>
+      <form id="composer" class="composer flex flex-col gap-2 px-4 py-3 bg-base-100 border-t border-base-300" autocomplete="off" novalidate>
+        <fieldset class="fieldset p-0 gap-1">
+          <legend class="fieldset-legend pb-1">Working directory</legend>
+          <div class="join w-full">
+            <select id="cwd-roots" class="select select-sm join-item w-40 shrink-0" title="Jump to a common folder" aria-label="Jump to a common folder"></select>
+            <input id="cwd" type="text" class="input input-sm join-item flex-1 min-w-0 font-mono" spellcheck="false" placeholder="/path/to/folder" title="Type or paste a folder path and press Enter" aria-label="Working directory path">
+            <button id="cwd-up" type="button" class="btn btn-sm join-item" title="Go to the parent folder">↑ Up</button>
+          </div>
+          <select id="cwd-children" class="select select-sm w-full" title="Open a subfolder" aria-label="Open a subfolder"></select>
+        </fieldset>
+        <!-- Per-run policy: budget cap, allowed built-in tools, deny patterns. Remembered in the browser. -->
+        <details id="policy" class="policy collapse collapse-arrow bg-base-200 border border-base-300">
+          <summary id="policy-title" class="collapse-title text-xs font-semibold min-h-0 py-2 pr-10 cursor-pointer" title="Budget cap, allowed tools and deny patterns for the next run">Policy · no limits</summary>
+          <div class="collapse-content flex flex-col gap-3 pt-1">
+            <fieldset class="fieldset p-0 gap-1">
+              <legend class="fieldset-legend pb-1">Budget cap (USD)</legend>
+              <div class="flex flex-wrap items-center gap-2">
+                <label id="policy-budget-wrap" class="input input-sm w-36" title="Maximum spend for one run">
+                  <span class="opacity-60">$</span>
+                  <input id="policy-budget" type="number" step="0.01" min="0.01" max="1000" class="grow" placeholder="none" aria-label="Budget cap in US dollars">
+                </label>
+                <div class="join" role="group" aria-label="Budget presets">
+                  <button type="button" class="btn btn-xs join-item" data-budget="0.25">0.25</button>
+                  <button type="button" class="btn btn-xs join-item" data-budget="1">1</button>
+                  <button type="button" class="btn btn-xs join-item" data-budget="5">5</button>
+                  <button type="button" class="btn btn-xs join-item" data-budget="">none</button>
+                </div>
+              </div>
+              <p class="label text-xs">Sent as <code>--max-budget-usd</code>. Claude checks the cap after each turn and ends the run with “hit the cost budget” once it is exceeded, so one turn can overshoot a tiny cap.</p>
+            </fieldset>
+            <fieldset class="fieldset p-0 gap-1">
+              <legend class="fieldset-legend pb-1">Allowed tools</legend>
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="join" role="group" aria-label="Tool presets">
+                  <button type="button" class="btn btn-xs join-item" data-tools="all">all</button>
+                  <button type="button" class="btn btn-xs join-item" data-tools="none">none</button>
+                  <button type="button" class="btn btn-xs join-item" data-tools="readonly" title="Read, Glob, Grep, WebSearch, WebFetch, TodoWrite, TaskList, TaskGet, ToolSearch">read-only</button>
+                </div>
+                <span id="policy-tools-note" class="text-xs opacity-60"></span>
+              </div>
+              <div id="policy-tools" class="policy-tools grid gap-x-3 gap-y-0.5" role="group" aria-label="Built-in tools Claude may use"></div>
+              <p class="label text-xs">Sent as <code>--tools</code>, which only covers Claude's built-in tools. Everything checked means no restriction (the flag is omitted). MCP tools are not affected; deny them by pattern below.</p>
+            </fieldset>
+            <fieldset class="fieldset p-0 gap-1">
+              <legend class="fieldset-legend pb-1">Deny patterns</legend>
+              <input id="policy-deny" type="text" class="input input-sm w-full font-mono" spellcheck="false" placeholder="Bash(git push *), Bash(rm *)" aria-label="Deny patterns, comma-separated">
+              <p class="label text-xs">Comma-separated, sent as <code>--disallowedTools</code>. Tool names or <code>Tool(pattern)</code> rules, e.g. <code>Bash(git push *)</code>, <code>Edit</code>, <code>mcp__server__tool</code>. Up to 50 rules of 200 characters.</p>
+            </fieldset>
+          </div>
+        </details>
+        <fieldset class="fieldset p-0 gap-1">
+          <legend class="fieldset-legend pb-1">Prompt</legend>
+          <textarea id="prompt" class="textarea w-full text-sm" rows="3" placeholder="Ask Claude Code to do something in the selected directory…"></textarea>
+          <p class="label text-xs">Run with <kbd class="kbd kbd-xs">⌘</kbd>/<kbd class="kbd kbd-xs">Ctrl</kbd> + <kbd class="kbd kbd-xs">Enter</kbd></p>
+        </fieldset>
+        <div class="flex items-center gap-2">
+          <button id="run" type="submit" class="btn btn-primary btn-sm">Run</button>
+          <button id="stop" type="button" class="btn btn-error btn-sm" hidden>Stop</button>
+          <span id="composer-note" class="note text-xs opacity-70"></span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <dialog id="sessions-dialog" class="modal" aria-labelledby="sessions-title">
+    <div class="modal-box max-w-3xl w-11/12 p-0 flex flex-col max-h-[85vh]">
+      <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-base-300">
+        <h2 id="sessions-title" class="font-semibold flex-1">Previous sessions</h2>
+        <label class="scope-toggle flex items-center gap-2 text-xs cursor-pointer">
+          <input id="sessions-all" type="checkbox" class="toggle toggle-sm"> all directories
+        </label>
+        <label class="input input-sm w-56">
+          <svg class="h-[1em] opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g stroke-linejoin="round" stroke-linecap="round" stroke-width="2.5" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></g></svg>
+          <input id="sessions-filter" type="search" class="grow" placeholder="Filter by title or prompt…" aria-label="Filter sessions">
+        </label>
+        <form method="dialog"><button type="submit" class="btn btn-sm btn-circle btn-ghost" aria-label="Close">✕</button></form>
+      </div>
+      <p id="sessions-scope" class="text-xs opacity-60 px-4 pt-2 mb-0"></p>
+      <ul id="sessions-list" class="list overflow-auto p-2 min-h-24"></ul>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Full-screen trajectory view, opened by the summary card's Expand button. Two tabs: Flow (the agent-path diagram;
+       flow.js fills #flow-toolbar and renders into #flow-root) and Timeline (the Cytoscape step graph, #tree). -->
+  <dialog id="trajectory-modal" class="modal" aria-labelledby="trajectory-title">
+    <div class="modal-box w-screen max-w-none h-screen max-h-none rounded-none p-0 flex flex-col">
+      <header class="flex items-center gap-3 px-4 py-2 border-b border-base-300">
+        <h2 id="trajectory-title" class="font-semibold">Trajectory</h2>
+        <span id="trajectory-session" class="badge badge-sm badge-ghost font-mono"></span>
+        <span id="trajectory-counts" class="text-xs opacity-60"></span>       <!-- "3 runs · 12 turns · 25 tool calls" -->
+        <div role="tablist" class="tabs tabs-box tabs-sm ml-4" aria-label="Trajectory views">
+          <button type="button" role="tab" class="tab tab-active" data-tab="flow" id="tab-flow" aria-selected="true" aria-controls="flow-panel">Flow</button>
+          <button type="button" role="tab" class="tab" data-tab="timeline" id="tab-timeline" aria-selected="false" aria-controls="timeline-panel">Timeline</button>
+        </div>
+        <span class="flex-1"></span>
+        <form method="dialog"><button type="submit" class="btn btn-sm btn-circle btn-ghost" aria-label="Close">✕</button></form>
+      </header>
+      <section id="flow-panel" class="flex-1 min-h-0 flex flex-col" role="tabpanel" aria-labelledby="tab-flow" hidden>
+        <div id="flow-toolbar" class="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-base-300"></div>  <!-- flow.js fills -->
+        <div id="flow-root" class="flex-1 min-h-0 relative"></div>                                                   <!-- flow.js renders -->
+      </section>
+      <section id="timeline-panel" class="flex-1 min-h-0 flex flex-col" role="tabpanel" aria-labelledby="tab-timeline">
+        <div class="flex flex-wrap items-center gap-3 px-4 py-2 border-b border-base-300">
+          <label class="input input-sm w-64">
+            <svg class="h-[1em] opacity-50" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><g stroke-linejoin="round" stroke-linecap="round" stroke-width="2.5" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></g></svg>
+            <input id="timeline-search" type="search" class="grow" placeholder="Find a step…" aria-label="Find a step (Enter cycles through the matches)" autocomplete="off">
+          </label>
+          <span id="timeline-matches" class="text-xs opacity-60"></span>
+          <div class="join" role="group" aria-label="Zoom">
+            <button id="graph-zoom-out" type="button" class="btn btn-xs join-item" title="Zoom out" aria-label="Zoom out">−</button>
+            <button id="graph-fit" type="button" class="btn btn-xs join-item" title="Fit the whole graph in view">Fit</button>
+            <button id="graph-zoom-in" type="button" class="btn btn-xs join-item" title="Zoom in" aria-label="Zoom in">+</button>
+          </div>
+          <button id="graph-dir" type="button" class="btn btn-xs" title="Toggle top-down / left-right layout">Top-down</button>
+          <label class="flex items-center gap-1 text-xs cursor-pointer" title="Keep the newest step in view while a run is active">
+            <input id="graph-follow" type="checkbox" class="toggle toggle-xs" checked> follow
+          </label>
+          <div class="legend flex flex-wrap gap-x-3 gap-y-1 text-xs opacity-70 ml-auto" aria-label="Status legend">
+            <span class="inline-flex items-center gap-1"><span class="status status-warning"></span>running / pending</span>
+            <span class="inline-flex items-center gap-1"><span class="status status-success"></span>completed</span>
+            <span class="inline-flex items-center gap-1"><span class="status status-error"></span>failed</span>
+            <span class="inline-flex items-center gap-1"><span class="status status-neutral"></span>stopped</span>
+            <span class="inline-flex items-center gap-1 opacity-80">drag to pan · scroll to zoom · click a node to jump to it</span>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-0 flex flex-col">
+          <div id="tree" class="flex-1 min-h-0 w-full" role="img" aria-label="Session trajectory graph"></div>
+          <div id="graph-tip" class="graph-tip" hidden></div>
+        </div>
+      </section>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Cytoscape.js draws the trajectory graph; the dagre extension provides the layered layout (all vendored) -->
+  <script src="{{ url_for('static', filename='vendor/cytoscape.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/dagre.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/cytoscape-dagre.js') }}"></script>
+  <!-- CCFlow: the trajectory Flow view (data model + hand-rolled SVG renderer). Must load before app.js. -->
+  <script src="{{ url_for('static', filename='flow.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+*.local
+
+# Personal Claude settings
+claude/settings.json
+**/.claude/settings.local.json
+CLAUDE.local.md
+
+# Runtime chat data (chat history, scratch workspace contents) — not part of the repo
+server/data/chats/*
+!server/data/chats/.gitkeep
+server/data/scratch-workspace/*
+!server/data/scratch-workspace/.gitkeep
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

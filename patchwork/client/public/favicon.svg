@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <title>Patchwork</title>
+  <path d="M6 28C3 15 12 9 25 10s19 10 17 21c-2 10-10 13-20 12S8 39 6 28" fill="#ff8c5b"/>
+  <path d="M23 12c-8-4-4-11 0-9 5 3-1 8-1 8s7-9 10-5-5 8-9 6" fill="#b94e23"/>
+  <ellipse cx="18" cy="25" rx="4" ry="6" fill="#fffbed"/>
+  <ellipse cx="30" cy="25" rx="4" ry="6" fill="#fffbed"/>
+  <ellipse cx="19" cy="26" rx="1.8" ry="2.3" fill="#352b40"/>
+  <ellipse cx="31" cy="26" rx="1.8" ry="2.3" fill="#352b40"/>
+  <path d="M20 34q4 5 8 0" fill="none" stroke="#352b40" stroke-width="2" stroke-linecap="round"/>
+</svg>

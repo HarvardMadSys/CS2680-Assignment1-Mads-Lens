@@ -1,0 +1,6 @@
+{
+  "prompt": "Analyze this trajectory viewer without modifying any files. Use exactly two Explore subagents in parallel: one surveys the parser/state pipeline and one surveys the React renderer. Ask each subagent to delegate at least one narrower read-only investigation to its own subagent. Have the parser branch inspect frame decoding and tool-status folding; have the renderer branch inspect the run cards and outline. After both branches return, summarize their findings briefly.",
+  "cwd": "claude-test",
+  "resumeSessionId": null,
+  "startedAt": "2026-09-19T12:30:00.000Z"
+}

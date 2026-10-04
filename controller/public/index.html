@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Claude controller</title>
+<link rel="preload" href="/fonts/geist-mono-400.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/geist-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/fonts/geist-pixel-400.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="console" id="console">
+  <div class="glaze" aria-hidden="true"></div>
+
+  <!-- ══ top rail ══ -->
+  <header class="rail">
+    <div class="ident">
+      <span class="ident-text">
+        <b data-text="Controller">Controller</b>
+      </span>
+    </div>
+
+    <div class="oled-bank">
+      <div class="oled"><i>cost</i><b id="statCost">—</b></div>
+      <div class="oled"><i>time</i><b id="statDuration">—</b></div>
+      <div class="oled"><i>turns</i><b id="statTurns">—</b></div>
+      <div class="oled"><i>calls</i><b id="statCalls">0</b></div>
+      <div class="oled wide"><i>route</i><b id="statRoute">sonnet · high</b></div>
+    </div>
+
+    <div class="rail-right">
+      <span class="vcs-group">
+        <button type="button" class="cap xs icon-only" id="mergeBtn" title="merge this branch into main and push" aria-label="merge into main">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="4.5" cy="3.6" r="1.9" /><circle cx="4.5" cy="12.4" r="1.9" />
+            <path d="M4.5 5.5v5" /><circle cx="11.5" cy="3.6" r="1.9" />
+            <path d="M11.5 5.5v1a2.6 2.6 0 0 1-2.6 2.6H6.5" />
+          </svg>
+        </button>
+      </span>
+      <span class="state-chip" id="runState" data-state="idle" role="status" title="idle" aria-label="run state: idle">
+        <svg class="g g-idle" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+          <circle cx="8" cy="8" r="3.4" fill="currentColor" />
+        </svg>
+        <svg class="g g-running" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M8 2.4a5.6 5.6 0 1 1-4.98 3.04" />
+        </svg>
+        <svg class="g g-done" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m3.4 8.5 3.1 3.1 6.1-7" />
+        </svg>
+        <svg class="g g-failed" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M8 3.8v4.9" /><path d="M8 11.9v.1" />
+        </svg>
+      </span>
+      <span class="session" id="sessionLabel">no session</span>
+      <button type="button" class="cap xs only-narrow" id="toggleRack" title="Controls (C)">ctrl</button>
+      <button type="button" class="cap xs only-mid" id="toggleScope" title="Scope (S)">scope</button>
+      <button type="button" class="cap xs icon-only" id="newSession" title="new session — forget the session id" aria-label="new session">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="22 4 22 10 16 10" />
+          <path d="M19.9 14.6A8.5 8.5 0 1 1 18 5.6L22 10" />
+        </svg>
+      </button>
+      <button type="button" class="cap xs icon-only" id="expand" title="fill the screen (F)" aria-label="expand">
+        <svg class="i-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 3H5.5A2.5 2.5 0 0 0 3 5.5V8" /><path d="M21 8V5.5A2.5 2.5 0 0 0 18.5 3H16" />
+          <path d="M3 16v2.5A2.5 2.5 0 0 0 5.5 21H8" /><path d="M16 21h2.5a2.5 2.5 0 0 0 2.5-2.5V16" />
+        </svg>
+        <svg class="i-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8h2.5A2.5 2.5 0 0 0 8 5.5V3" /><path d="M16 3v2.5A2.5 2.5 0 0 0 18.5 8H21" />
+          <path d="M8 21v-2.5A2.5 2.5 0 0 0 5.5 16H3" /><path d="M21 16h-2.5a2.5 2.5 0 0 0-2.5 2.5V21" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ main bay ══ -->
+  <div class="bay">
+
+    <!-- ── left rack: controls ── -->
+    <aside class="rack" id="rack">
+
+      <section class="module" data-module="router">
+        <header><h3>router</h3><span class="tag" id="routerTag">sonnet</span></header>
+        <div class="router-grid">
+          <div class="knob-well">
+            <div class="knob" id="effortKnob" tabindex="0" role="slider"
+                 aria-label="effort" aria-valuemin="0" aria-valuemax="4" aria-valuenow="2">
+              <span class="knob-face"><i class="knob-pointer"></i></span>
+            </div>
+            <span class="knob-value" id="effortValue">high</span>
+          </div>
+          <div class="model-stack">
+            <div class="cap-row" id="modelRow">
+              <button type="button" class="cap tiny" data-model="opus">opus</button>
+              <button type="button" class="cap tiny is-on" data-model="sonnet">sonnet</button>
+              <button type="button" class="cap tiny" data-model="haiku">haiku</button>
+              <button type="button" class="cap tiny" data-model="fable">fable</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" data-module="agents">
+        <header><h3>agents &amp; sub-agents</h3><span class="tag" id="agentCount">0 custom</span></header>
+        <div class="agents-grid">
+          <div class="agents-main">
+        <span class="micro">main loop</span>
+        <select id="mainAgent" class="sel"><option value="">default</option></select>
+
+        <div class="agent-deck" id="agentDeck"></div>
+
+        <button type="button" class="cap wide ghosty" id="newAgent">+ define agent</button>
+
+        <label class="switch" title="make delegation mandatory rather than the agent's choice">
+          <input type="checkbox" id="requireSub" />
+          <span class="track"><i></i></span>
+          <span id="requireLabel">delegation optional</span>
+        </label>
+
+        <form class="agent-form" id="agentForm" hidden>
+          <input type="text" id="agentName" class="inp" placeholder="name · e.g. auditor" autocomplete="off" />
+          <input type="text" id="agentDesc" class="inp" placeholder="when to use it" autocomplete="off" />
+          <textarea id="agentPrompt" class="inp" rows="2" placeholder="system prompt for this agent"></textarea>
+          <input type="text" id="agentTools" class="inp" placeholder="tools · Read,Grep,Bash (blank = all)" autocomplete="off" />
+          <div class="cap-row">
+            <button type="submit" class="cap tiny accent">commit</button>
+            <button type="button" class="cap tiny" id="agentCancel">cancel</button>
+          </div>
+        </form>
+          </div>
+          <div class="lever" id="subLever" tabindex="0" role="slider"
+               aria-label="concurrent subagents" aria-valuemin="0" aria-valuemax="25" aria-valuenow="4">
+            <span class="lever-value" id="subValue">4</span>
+            <span class="lever-unit">sub</span>
+            <span class="lever-fill" id="subFill"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="module" data-module="caps">
+        <header><h3>capabilities</h3><span class="tag" id="capTag">probing…</span></header>
+        <div class="sub">
+          <details class="picker" id="skillPicker">
+            <summary>
+              <span>skills <em id="skillCount">0</em></span>
+              <i class="cue" aria-hidden="true">+</i>
+            </summary>
+            <input type="text" id="skillFilter" class="inp" placeholder="search skills.sh…"
+                   spellcheck="false" autocomplete="off" aria-label="search skills" />
+            <div class="chips" id="skillChips"></div>
+            <p class="note" id="skillEmpty" hidden>none installed match</p>
+            <div class="registry" id="skillRegistry"></div>
+            <p class="note" id="skillStatus"></p>
+          </details>
+        </div>
+        <div class="sub">
+          <span class="micro">mcp servers <em id="mcpCount">0</em></span>
+          <div class="mcp-list" id="mcpList"><p class="void">isolated · strict-mcp-config</p></div>
+          <label class="switch">
+            <input type="checkbox" id="fullEnv" />
+            <span class="track"><i></i></span>
+            <span>full environment</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="module" data-module="instructions">
+        <header><h3>instructions</h3><span class="tag" id="instrTag">off</span></header>
+        <textarea id="appendSystem" class="inp" rows="3"
+          placeholder="appended to the system prompt every run"></textarea>
+      </section>
+
+      <section class="module" data-module="vcs">
+        <header><h3>version control</h3></header>
+        <div class="cap-row">
+          <button type="button" class="cap" data-stage="Show me the diff of the working tree and summarise what changed.">diff</button>
+          <button type="button" class="cap" data-stage="Stage the working tree and write a commit with a message explaining why the change was made.">commit</button>
+        </div>
+        <p class="note">stages a prompt — you press run</p>
+      </section>
+    </aside>
+
+    <!-- ── centre stage: trajectory ── -->
+    <main class="stage">
+      <div class="dialogue" id="dialogue" tabindex="0"></div>
+      <div class="working" id="working" hidden>
+        <svg class="working-spin" viewBox="0 0 16 16" width="13" height="13" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M8 2.4a5.6 5.6 0 1 1-4.98 3.04" />
+        </svg>
+        <b id="workingWord">working</b>
+        <span class="working-dots"><i></i><i></i><i></i></span>
+      </div>
+    </main>
+
+    <!-- ── right column: scope + outline ── -->
+    <aside class="scope-col">
+      <section class="module scope-module">
+        <header><h3>scope</h3><span class="tag" id="scopeTag">idle</span></header>
+        <svg id="scope" viewBox="0 0 240 240" aria-label="agent constellation"></svg>
+        <div class="scope-legend">
+          <span><i class="sw main"></i>main</span>
+          <span><i class="sw sub"></i>subagent</span>
+          <span><i class="sw err"></i>error</span>
+        </div>
+      </section>
+
+      <section class="module outline-module">
+        <header><h3>outline</h3><span class="tag" id="outlineCount">0</span></header>
+        <div class="tree-wrap"><div class="toc" id="toc"></div></div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- ══ command deck ══ -->
+  <footer class="deck">
+    <div class="deck-settings" id="deckSettings" hidden>
+      <label class="fieldlet"><span>working dir</span><input type="text" id="cwd" class="inp" spellcheck="false" /></label>
+      <label class="fieldlet"><span>--add-dir</span><input type="text" id="addDirs" class="inp" spellcheck="false" placeholder="extra dirs, comma separated" /></label>
+      <label class="switch"><input type="checkbox" id="skipPerms" checked /><span class="track"><i></i></span><span>bypass perms</span></label>
+      <label class="switch"><input type="checkbox" id="continueSession" checked /><span class="track"><i></i></span><span>continue session</span></label>
+    </div>
+
+    <div class="deck-row">
+      <button type="button" class="knob-btn" id="settingsKnob" title="More settings" aria-expanded="false">
+        <span>+</span>
+      </button>
+
+      <button type="button" class="cap icon" id="fileBtn" title="Attach files as context">file</button>
+      <input type="file" id="fileInput" multiple hidden />
+
+      <button type="button" class="cap icon mic" id="micBtn" title="Dictate a prompt" aria-label="Dictate a prompt">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <rect x="9" y="2" width="6" height="11" rx="3" fill="currentColor" />
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <path d="M12 17.5V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          <path d="M8.5 21h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      </button>
+
+      <form class="prompt-well" id="composer">
+        <span class="caret">›</span>
+        <textarea id="prompt" rows="1" spellcheck="false"
+          placeholder="command the agent…"></textarea>
+        <button type="submit" class="cap run" id="send">
+          <span class="send-word">run</span>
+          <svg class="send-stop" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <rect x="3.5" y="3.5" width="9" height="9" rx="1.6" fill="currentColor" />
+          </svg>
+        </button>
+      </form>
+    </div>
+
+    <div class="attachments" id="attachments"></div>
+    <p class="hint" id="hint"></p>
+  </footer>
+</div>
+
+<!-- ══ merge confirmation ══ -->
+<div class="confirm" id="mergePanel" hidden>
+  <h4>merge into main</h4>
+  <pre class="confirm-body" id="mergeBody"></pre>
+  <div class="cap-row">
+    <button type="button" class="cap tiny accent" id="mergeGo">merge</button>
+    <button type="button" class="cap tiny" id="mergeCancel">cancel</button>
+  </div>
+  <p class="note">merges into main and pushes to the remote</p>
+</div>
+
+<!-- ══ floating voice bubble ══ -->
+<div class="voice" id="voice" hidden>
+  <div class="voice-head">
+    <span class="rec"></span>
+    <span class="voice-title">listening</span>
+  </div>
+  <div class="dial" id="orb">
+    <span class="dial-ring"></span>
+    <span class="dial-face">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <rect x="9" y="2" width="6" height="11" rx="3" fill="currentColor" />
+        <path d="M5.5 11a6.5 6.5 0 0 0 13 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        <path d="M12 17.5V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      </svg>
+    </span>
+    <span class="dial-ticks"></span>
+  </div>
+  <p class="voice-text" id="voiceText">listening…</p>
+  <button type="button" class="cap xs" id="voiceStop">stop</button>
+</div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
