@@ -1,4 +1,5 @@
-import { mkdirSync, createWriteStream } from 'node:fs'
+import { mkdirSync, mkdtempSync, createWriteStream } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { runClaude } from './runner.ts'
@@ -12,7 +13,7 @@ const { values, positionals } = parseArgs({
     model: { type: 'string', default: 'sonnet' },
     'permission-mode': { type: 'string', default: 'acceptEdits' },
     'skip-permissions': { type: 'boolean', default: false },
-    'sandbox-dir': { type: 'string', default: 'sandbox' },
+    'sandbox-dir': { type: 'string' },
     'allowed-tools': { type: 'string' },
     resume: { type: 'string' },
     'record-dir': { type: 'string', default: 'runs' },
@@ -31,7 +32,8 @@ if (values.help || !prompt) {
   --permission-mode <m>    default: acceptEdits
   --skip-permissions       auto-approve everything; runs in --sandbox-dir
                            unless --cwd says otherwise
-  --sandbox-dir <dir>      scratch dir for --skip-permissions (default: sandbox)
+  --sandbox-dir <dir>      scratch dir for --skip-permissions (default: a new
+                           directory in the OS temp dir)
   --allowed-tools <a,b>    comma-separated auto-approved tools
   --resume <session-id>    continue a previous session
   --record-dir <dir>       transcript output dir (default: runs)
@@ -42,8 +44,10 @@ if (values.help || !prompt) {
 
 // Bypassing every permission check inside the source tree would let a run edit
 // the driver that launched it, so an unscoped --skip-permissions is confined to
-// a scratch directory.
-const cwd = values.cwd ?? (values['skip-permissions'] ? values['sandbox-dir'] : undefined)
+// a scratch directory outside it.
+const cwd = values.cwd ?? (values['skip-permissions']
+  ? values['sandbox-dir'] ?? mkdtempSync(join(tmpdir(), 'controller-'))
+  : undefined)
 if (cwd) mkdirSync(cwd, { recursive: true })
 
 mkdirSync(values['record-dir'], { recursive: true })

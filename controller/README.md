@@ -130,13 +130,16 @@ other machines.
 
 ### Working directory and permissions
 
-The default working directory is `sandbox/` inside this project. It is git-ignored and created on the
-first run. Put a scratch copy of a project there, or select another scratch directory.
+Nothing is hard-coded. Unless you set `WORKDIR`, the server creates an empty scratch directory in
+the OS temp dir when it starts (for example `/var/folders/…/T/controller-a1B2c3`), prints it, and
+fills the **working dir** field with it. The same directory is used until the server stops, so
+**continue session** can resume. Type another path into the field, or start the server with
+`WORKDIR=/path/to/project npm run serve`, to work on a real project.
 
 **Bypass perms is on by default.** This adds `--dangerously-skip-permissions`, approving every tool
 call without asking. Claude can edit or delete files and run shell commands as your user, including
-outside the selected directory. The default `sandbox/` is a folder inside this repository clone, not
-an isolated environment. Use a scratch directory, ideally in a container or VM.
+outside the selected directory. The default scratch directory is outside this repository clone but
+is not an isolated environment. Use a scratch directory, ideally in a container or VM.
 
 Turning bypass perms off selects `--permission-mode acceptEdits`: file edits are auto-approved, but
 other tools that require approval are not.
@@ -165,9 +168,9 @@ happen before a model request.
 directory and previews its branch and commits ahead of `main`. Pressing **merge** checks out `main`,
 runs `git merge --no-ff <branch>`, and **pushes `main` to the first remote**.
 
-Controller refuses to merge in the repository that contains Controller itself; the default
-`sandbox/` resolves to that repository. To use the panel, select a separate repository, either
-another project or `sandbox/` after running `git init` inside it. The merge action includes a push.
+Controller refuses to merge in the repository that contains Controller itself. The default scratch
+directory is not a git repository, so to use the panel select a separate repository, either another
+project or a directory where you ran `git init`. The merge action includes a push.
 
 **Skills add.** The **add** button runs
 `npx -y skills@latest add <owner/repo> --project --yes` in the Controller folder. It downloads
@@ -177,8 +180,8 @@ paths are git-ignored here.
 ### Terminal driver
 
 `npm run drive -- --help` lists options for a headless driver that runs one prompt and prints the call
-tree. Its default is `--permission-mode acceptEdits`. With `--skip-permissions`, it uses `sandbox/`
-unless you also supply `--cwd`.
+tree. Its default is `--permission-mode acceptEdits`. With `--skip-permissions`, it runs in a new
+scratch directory in the OS temp dir unless you also supply `--cwd` or `--sandbox-dir`.
 
 ### Try a prompt with subagents
 
@@ -214,11 +217,12 @@ dashed, pulsing link while busy. Its transcript cards arrive with `sub` badges i
 | --- | --- | --- |
 | `PORT` | `8000` | Port to listen on |
 | `HOST` | `0.0.0.0` | Interface to bind; `127.0.0.1` accepts local connections only |
+| `WORKDIR` | a new temp directory | Default working directory for live runs |
 
 For example, `HOST=127.0.0.1 PORT=9000 npm run serve` starts a local server on port 9000.
 
 Other settings are on the board. Paths are relative to this folder: `runs/` stores live recordings,
-`demo-runs/` contains the bundled recordings, and `sandbox/` is the default working directory.
+and `demo-runs/` contains the bundled recordings.
 
 ## Security note
 
