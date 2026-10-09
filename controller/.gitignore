@@ -1,8 +1,6 @@
 node_modules/
 # live runs are recorded here
 runs/
-# default working directory for live runs
-sandbox/
 # written by the skills panel's "add" button (npx skills add)
 skills-lock.json
 .agents/

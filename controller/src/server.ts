@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { createWriteStream, mkdirSync } from 'node:fs'
+import { createWriteStream, mkdirSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +12,12 @@ const PORT = Number(process.env.PORT ?? 8000)
 const HOST = process.env.HOST ?? '0.0.0.0'
 const APP_DIR = fileURLToPath(new URL('../', import.meta.url))
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url))
-const DEFAULT_CWD = fileURLToPath(new URL('../sandbox/', import.meta.url))
+/** Where runs happen when the page names no working dir: WORKDIR if set,
+ *  otherwise a scratch directory made in the OS temp dir when the server starts.
+ *  It sits outside this checkout, so a run with permissions bypassed cannot edit
+ *  Controller itself, and it stays fixed for the server's lifetime so --resume
+ *  finds the session again. */
+const DEFAULT_CWD = process.env.WORKDIR ? resolve(process.env.WORKDIR) : mkdtempSync(join(tmpdir(), 'controller-'))
 const RUNS_DIR = fileURLToPath(new URL('../runs/', import.meta.url))
 /** Recordings that ship with the app, so replay works on a fresh clone. */
 const DEMO_DIR = fileURLToPath(new URL('../demo-runs/', import.meta.url))
@@ -99,8 +105,9 @@ async function handleRun(req: IncomingMessage, res: ServerResponse) {
   if (!prompt) return sendJson(res, 400, { error: 'prompt is required' })
 
   const cwd = resolve(typeof body.cwd === 'string' && body.cwd.trim() ? body.cwd.trim() : DEFAULT_CWD)
-  // The default scratch directory is git-ignored, so a fresh clone lacks it.
-  if (cwd === resolve(DEFAULT_CWD)) mkdirSync(cwd, { recursive: true })
+  // WORKDIR may name a directory that does not exist yet, and the OS may clear
+  // its temp dir under a long-running server.
+  if (cwd === DEFAULT_CWD) mkdirSync(cwd, { recursive: true })
   try {
     if (!(await stat(cwd)).isDirectory()) return sendJson(res, 400, { error: `not a directory: ${cwd}` })
   } catch {
@@ -217,7 +224,7 @@ function ownsApp(repo: string): boolean {
 
 const OWN_REPO_ERROR =
   'refusing to merge: the working dir is inside the repository that contains Controller itself. '
-  + 'Point the working dir at a separate git repository (e.g. run `git init` in sandbox/).'
+  + 'Point the working dir at a separate git repository (e.g. a scratch clone, or a directory where you ran `git init`).'
 
 /** What merging would do, so the page can show it before anything happens. */
 async function handleMergePreview(req: IncomingMessage, res: ServerResponse) {

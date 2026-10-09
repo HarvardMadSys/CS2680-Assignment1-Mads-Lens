@@ -41,8 +41,9 @@ knob and fader to LCD-style readouts for cost, time, turns, calls and the select
 
 ### Follow the work
 
-- **Trajectory cards.** Each tool call has JSON input, a result with line numbers, a `✓` or `✕` status,
-  and folds such as **show 30 more lines**. Failed calls have red outlines. Subagent calls carry a
+- **Trajectory cards.** Each tool call starts folded to a one-line head with a `✓` or `✕` status.
+  Click it to open the JSON input and a result with line numbers, with folds such as
+  **show 30 more lines**. Failed calls have red outlines. Subagent calls carry a
   `sub` badge and nest inside the `Agent` card that started them.
 - **Radial scope.** The main agent is the hub, with a satellite for each subagent. Nodes show completed
   call counts and progress rings. Dashed, pulsing links indicate busy subagents; a node turns red when
@@ -54,6 +55,9 @@ knob and fader to LCD-style readouts for cost, time, turns, calls and the select
 - **Other inputs and shortcuts.** **file** attaches text files as context. The mic uses the Web Speech
   API for dictation in supported browsers. Press `F` for full screen, or `C` / `S` to show the
   controls / scope on narrow screens.
+- **Light and dark.** The board follows the OS theme. The sun/moon key at the top right, or `L`,
+  switches between them and remembers the choice. The small black displays and the knobs stay
+  dark in light mode, as on a light-bodied instrument.
 - **Recording and replay.** Live runs are saved to `runs/<timestamp>.jsonl`. Replays feed those events
   back into the board without running the recorded prompt through Claude.
 
@@ -130,13 +134,16 @@ other machines.
 
 ### Working directory and permissions
 
-The default working directory is `sandbox/` inside this project. It is git-ignored and created on the
-first run. Put a scratch copy of a project there, or select another scratch directory.
+Nothing is hard-coded. Unless you set `WORKDIR`, the server creates an empty scratch directory in
+the OS temp dir when it starts (for example `/var/folders/…/T/controller-a1B2c3`), prints it, and
+fills the **working dir** field with it. The same directory is used until the server stops, so
+**continue session** can resume. Type another path into the field, or start the server with
+`WORKDIR=/path/to/project npm run serve`, to work on a real project.
 
 **Bypass perms is on by default.** This adds `--dangerously-skip-permissions`, approving every tool
 call without asking. Claude can edit or delete files and run shell commands as your user, including
-outside the selected directory. The default `sandbox/` is a folder inside this repository clone, not
-an isolated environment. Use a scratch directory, ideally in a container or VM.
+outside the selected directory. The default scratch directory is outside this repository clone but
+is not an isolated environment. Use a scratch directory, ideally in a container or VM.
 
 Turning bypass perms off selects `--permission-mode acceptEdits`: file edits are auto-approved, but
 other tools that require approval are not.
@@ -165,9 +172,9 @@ happen before a model request.
 directory and previews its branch and commits ahead of `main`. Pressing **merge** checks out `main`,
 runs `git merge --no-ff <branch>`, and **pushes `main` to the first remote**.
 
-Controller refuses to merge in the repository that contains Controller itself; the default
-`sandbox/` resolves to that repository. To use the panel, select a separate repository, either
-another project or `sandbox/` after running `git init` inside it. The merge action includes a push.
+Controller refuses to merge in the repository that contains Controller itself. The default scratch
+directory is not a git repository, so to use the panel select a separate repository, either another
+project or a directory where you ran `git init`. The merge action includes a push.
 
 **Skills add.** The **add** button runs
 `npx -y skills@latest add <owner/repo> --project --yes` in the Controller folder. It downloads
@@ -177,8 +184,8 @@ paths are git-ignored here.
 ### Terminal driver
 
 `npm run drive -- --help` lists options for a headless driver that runs one prompt and prints the call
-tree. Its default is `--permission-mode acceptEdits`. With `--skip-permissions`, it uses `sandbox/`
-unless you also supply `--cwd`.
+tree. Its default is `--permission-mode acceptEdits`. With `--skip-permissions`, it runs in a new
+scratch directory in the OS temp dir unless you also supply `--cwd` or `--sandbox-dir`.
 
 ### Try a prompt with subagents
 
@@ -214,11 +221,12 @@ dashed, pulsing link while busy. Its transcript cards arrive with `sub` badges i
 | --- | --- | --- |
 | `PORT` | `8000` | Port to listen on |
 | `HOST` | `0.0.0.0` | Interface to bind; `127.0.0.1` accepts local connections only |
+| `WORKDIR` | a new temp directory | Default working directory for live runs |
 
 For example, `HOST=127.0.0.1 PORT=9000 npm run serve` starts a local server on port 9000.
 
 Other settings are on the board. Paths are relative to this folder: `runs/` stores live recordings,
-`demo-runs/` contains the bundled recordings, and `sandbox/` is the default working directory.
+and `demo-runs/` contains the bundled recordings.
 
 ## Security note
 
