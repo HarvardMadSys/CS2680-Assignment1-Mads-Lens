@@ -55,6 +55,9 @@ knob and fader to LCD-style readouts for cost, time, turns, calls and the select
 - **Other inputs and shortcuts.** **file** attaches text files as context. The mic uses the Web Speech
   API for dictation in supported browsers. Press `F` for full screen, or `C` / `S` to show the
   controls / scope on narrow screens.
+- **Light and dark.** The board follows the OS theme. The sun/moon key at the top right, or `L`,
+  switches between them and remembers the choice. The small black displays and the knobs stay
+  dark in light mode, as on a light-bodied instrument.
 - **Recording and replay.** Live runs are saved to `runs/<timestamp>.jsonl`. Replays feed those events
   back into the board without running the recorded prompt through Claude.
 

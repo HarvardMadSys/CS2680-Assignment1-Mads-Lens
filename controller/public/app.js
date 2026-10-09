@@ -130,7 +130,7 @@ function lane(key) {
 
 function arc(cx, cy, r, frac, stroke, width) {
   const c = 2 * Math.PI * r
-  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${stroke}" stroke-width="${width}"
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" style="stroke:${stroke}" stroke-width="${width}"
     stroke-dasharray="${(frac * c).toFixed(2)} ${c.toFixed(2)}" stroke-linecap="round"
     transform="rotate(-90 ${cx} ${cy})"/>`
 }
@@ -143,31 +143,32 @@ function drawScope() {
 
   let out = ''
   for (const r of [56, 88, 112]) {
-    out += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(240,240,239,.07)" stroke-width="1"/>`
+    out += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" style="stroke:var(--scope-grid)" stroke-width="1"/>`
   }
-  out += `<line x1="8" y1="${cy}" x2="232" y2="${cy}" stroke="rgba(240,240,239,.05)"/>
-          <line x1="${cx}" y1="8" x2="${cx}" y2="232" stroke="rgba(240,240,239,.05)"/>`
+  out += `<line x1="8" y1="${cy}" x2="232" y2="${cy}" style="stroke:var(--scope-axis)"/>
+          <line x1="${cx}" y1="8" x2="${cx}" y2="232" style="stroke:var(--scope-axis)"/>`
 
   subs.forEach(([, l], i) => {
     const a = (i / Math.max(subs.length, 1)) * Math.PI * 2 - Math.PI / 2
     const x = cx + Math.cos(a) * 88
     const y = cy + Math.sin(a) * 88
-    const colour = l.error ? '#E5484D' : '#E8551F'
+    // Colours are CSS variables so the scope follows the light/dark theme.
+    const colour = l.error ? 'var(--red)' : 'var(--o)'
     out += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"
-      stroke="${l.pending ? colour : 'rgba(232,85,31,.35)'}" stroke-width="1" ${l.pending ? 'stroke-dasharray="3 3"' : ''}/>`
-    out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="17" fill="#0C0C0C" stroke="${colour}" stroke-width="1.2"${l.pending ? ' class="pulse"' : ''}/>`
+      style="stroke:${l.pending ? colour : 'rgba(232,85,31,.35)'}" stroke-width="1" ${l.pending ? 'stroke-dasharray="3 3"' : ''}/>`
+    out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="17" style="fill:var(--scope-node);stroke:${colour}" stroke-width="1.2"${l.pending ? ' class="pulse"' : ''}/>`
     out += arc(x, y, 17, l.total ? (l.done + l.error) / l.total : 0, colour, 2.5)
     out += `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle"
-      font-family="Geist Pixel, monospace" font-size="11" fill="#F0F0EF">${l.done + l.error}</text>`
+      font-family="Geist Pixel, monospace" font-size="11" style="fill:var(--text)">${l.done + l.error}</text>`
   })
 
-  const mainColour = main?.error ? '#E5484D' : '#F0F0EF'
-  out += `<circle cx="${cx}" cy="${cy}" r="30" fill="#0C0C0C" stroke="${mainColour}" stroke-width="1.4"/>`
+  const mainColour = main?.error ? 'var(--red)' : 'var(--text)'
+  out += `<circle cx="${cx}" cy="${cy}" r="30" style="fill:var(--scope-node);stroke:${mainColour}" stroke-width="1.4"/>`
   if (main) out += arc(cx, cy, 30, main.total ? (main.done + main.error) / main.total : 0, mainColour, 3)
   out += `<text x="${cx}" y="${cy - 1}" text-anchor="middle" font-family="Geist Pixel, monospace"
-    font-size="15" fill="#F0F0EF">${main ? main.done + main.error : 0}</text>`
+    font-size="15" style="fill:var(--text)">${main ? main.done + main.error : 0}</text>`
   out += `<text x="${cx}" y="${cy + 12}" text-anchor="middle" font-family="Geist, sans-serif"
-    font-size="8" letter-spacing="1.4" fill="#6E6C6B">main</text>`
+    font-size="8" letter-spacing="1.4" style="fill:var(--text-3)">main</text>`
 
   svg.innerHTML = out
 }
@@ -685,7 +686,7 @@ function sigil(name) {
     marks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#FF5312" stroke-width="1.5"/>`
   }
   return `<svg class="viz" viewBox="0 0 30 30"><g transform="rotate(${spin} 15 15)">
-    <circle cx="15" cy="15" r="9" fill="none" stroke="rgba(255,255,255,.2)"/>
+    <circle cx="15" cy="15" r="9" fill="none" style="stroke:var(--sigil-ring)"/>
     <circle cx="15" cy="15" r="3.5" fill="#FF5312"/>${marks}</g></svg>`
 }
 
@@ -1037,10 +1038,37 @@ document.addEventListener('fullscreenchange', () => {
   expandBtn.setAttribute('aria-label', full ? 'restore' : 'expand')
 })
 
+const themeBtn = $('themeBtn')
+
+/** The theme itself is set in index.html before first paint; this keeps the
+ *  key's glyph and label in step and remembers an explicit choice. */
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme
+  const other = theme === 'light' ? 'dark' : 'light'
+  themeBtn.title = `${other} mode (L)`
+  themeBtn.setAttribute('aria-label', `switch to ${other} mode`)
+}
+
+themeBtn.addEventListener('click', () => {
+  const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'
+  setTheme(theme)
+  try { localStorage.setItem('controller-theme', theme) } catch { /* the choice just won't persist */ }
+})
+
+// Until a theme is chosen here, follow the OS when it switches.
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', (event) => {
+  let saved = null
+  try { saved = localStorage.getItem('controller-theme') } catch { /* storage blocked */ }
+  if (!saved) setTheme(event.matches ? 'light' : 'dark')
+})
+
+setTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark')
+
 document.addEventListener('keydown', (event) => {
   const typing = ['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement?.tagName)
   if (typing) return
   if (event.key.toLowerCase() === 'f') expandBtn.click()
+  if (event.key.toLowerCase() === 'l' && !event.metaKey && !event.ctrlKey) themeBtn.click()
   if (event.key.toLowerCase() === 'c') document.body.classList.toggle('show-rack')
   if (event.key.toLowerCase() === 's') document.body.classList.toggle('show-scope')
 })
