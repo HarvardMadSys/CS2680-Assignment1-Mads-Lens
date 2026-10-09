@@ -200,7 +200,9 @@ function addThinking(text, parent) {
 
 function addCall(block, parent) {
   const was = atBottom()
-  const root = el('div', 'call flash')
+  // Cards start folded to their one-line head, so a long run reads as a list of
+  // calls; a click on the head (or its outline row) opens the input and result.
+  const root = el('div', 'call flash collapsed')
   root.dataset.status = 'pending'
   root.id = `call-${block.id}`
 

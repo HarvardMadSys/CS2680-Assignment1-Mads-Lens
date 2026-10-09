@@ -41,8 +41,9 @@ knob and fader to LCD-style readouts for cost, time, turns, calls and the select
 
 ### Follow the work
 
-- **Trajectory cards.** Each tool call has JSON input, a result with line numbers, a `✓` or `✕` status,
-  and folds such as **show 30 more lines**. Failed calls have red outlines. Subagent calls carry a
+- **Trajectory cards.** Each tool call starts folded to a one-line head with a `✓` or `✕` status.
+  Click it to open the JSON input and a result with line numbers, with folds such as
+  **show 30 more lines**. Failed calls have red outlines. Subagent calls carry a
   `sub` badge and nest inside the `Agent` card that started them.
 - **Radial scope.** The main agent is the hub, with a satellite for each subagent. Nodes show completed
   call counts and progress rings. Dashed, pulsing links indicate busy subagents; a node turns red when

@@ -1313,7 +1313,6 @@ textarea.inp {
 }
 
 .call.collapsed .twisty { transform:rotate(-90deg); }
-.call:not(.has-children) .twisty { visibility:hidden; }
 
 .mark {
   font-weight:700;
